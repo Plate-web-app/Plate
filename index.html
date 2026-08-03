@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<!-- Pinch-zoom is intentionally disabled: on mobile it caused layout/scroll problems for users. Larger text is offered instead via Settings → Accessibility (beta/preview). -->
+
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Plate">
@@ -130,6 +132,42 @@
 .theme-seg button{border:none;background:none;color:var(--muted);font-family:var(--sans);font-size:13px;font-weight:600;padding:7px 16px;border-radius:9px;cursor:pointer}
 .theme-seg button.sel{background:var(--accent);color:#fff}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+/* Accessibility (beta/preview only — gated by data-a11y-baseline set in applyA11y).
+   A clear keyboard-focus ring. :focus-visible only shows for keyboard/AT users,
+   so it never clutters mouse/touch use — but keyboard navigation always has a visible indicator. */
+:root[data-a11y-baseline="on"] :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+/* Honor the OS "reduce motion" setting: drop transitions/animations to near-instant. */
+@media (prefers-reduced-motion: reduce){
+  :root[data-a11y-baseline="on"] *,
+  :root[data-a11y-baseline="on"] *::before,
+  :root[data-a11y-baseline="on"] *::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important}
+}
+/* ---- In-app accessibility preference toggles (beta/preview) ----------------
+   These respond to data-attributes set on <html> by applyA11y(). They layer ON
+   TOP of the OS media queries above, so a user can force reduced motion / more
+   contrast / larger text even if their device isn't set that way. */
+/* Reduced motion — same effect as the OS media query, driven by the toggle. */
+:root[data-a11y-motion="reduce"] *,
+:root[data-a11y-motion="reduce"] *::before,
+:root[data-a11y-motion="reduce"] *::after{
+  animation-duration:.001ms !important;animation-iteration-count:1 !important;
+  transition-duration:.001ms !important;scroll-behavior:auto !important;
+}
+/* High contrast — darken muted text and strengthen borders/outlines so nothing
+   relies on a low-contrast grey. Tuned per light/dark so both stay ≥4.5:1. */
+:root[data-a11y-contrast="on"][data-theme="light"]{--muted:#4a4640;--line:#8f887c}
+:root[data-a11y-contrast="on"][data-theme="dark"]{--muted:#d8d2c6;--line:#8f8a7e}
+:root[data-a11y-contrast="on"] :focus-visible{outline-width:4px}
+:root[data-a11y-contrast="on"] .btn,
+:root[data-a11y-contrast="on"] .meal-card,
+:root[data-a11y-contrast="on"] .goal-card,
+:root[data-a11y-contrast="on"] .chip{border-width:2px}
+/* Larger text — the app sizes most type in px, so a root font-size bump alone
+   wouldn't scale it. zoom on the app shell enlarges text AND spacing together and
+   is supported across the mobile browsers this app targets (Safari/Chrome). Since
+   pinch-zoom is disabled, this toggle is the supported way to enlarge the UI; a
+   modest 1.15x reads comfortably without breaking the flex/percentage layout. */
+:root[data-a11y-text="large"] #app{zoom:1.15}
 /* Touchscreen: kill the 300ms tap delay / accidental double-tap zoom on anything tappable,
    and stop tap-to-toggle rows from selecting text when double-tapped. */
 button,a,select,.meal-card,.best-card,.goal-card,.chip,.pref-row,.shop-item,.ing-list li,.qa-q,.occ-card,.state-row,.saved-row,.react-btn,.tabbar button,.cl-toggle,[data-recipe],[data-react]{touch-action:manipulation}
@@ -186,6 +224,10 @@ h2{font-family:var(--serif);font-size:22px;font-weight:700;letter-spacing:-.3px;
 .field{margin-bottom:20px}
 .field label{display:block;font-size:13px;font-weight:600;margin-bottom:8px;color:var(--ink)}
 .field .hint{font-size:12px;color:var(--muted);margin-top:6px}
+/* Form validation error — text (with an icon), not color alone; linked via aria-describedby. */
+.field-err{font-size:12.5px;font-weight:600;color:#c0392b;margin-top:6px}
+:root[data-theme="dark"] .field-err{color:#f0a9a2}
+.field input[aria-invalid="true"],.field select[aria-invalid="true"]{border-color:#c0392b}
 input[type=text],input[type=number],select{
   width:100%;padding:15px 16px;border:1.5px solid var(--line);border-radius:14px;
   font-size:16px;font-family:var(--sans);background:var(--card);color:var(--ink);
@@ -258,6 +300,13 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 #topBadges{
   position:fixed;top:calc(env(safe-area-inset-top) + 13px);right:calc(max(0px,(100% - var(--frame))/2) + 62px);
   z-index:60;display:flex;flex-direction:row;align-items:center;gap:5px;pointer-events:none;
+}
+/* Floating clock (preview feature) — top CENTER, mirrors the version-badge style (slightly larger). */
+#floatClock{
+  position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:50%;transform:translateX(-50%);
+  z-index:60;pointer-events:none;font-size:12px;font-weight:700;letter-spacing:.4px;
+  color:var(--muted);opacity:.7;background:var(--card);border:1px solid var(--line);
+  padding:3px 11px;border-radius:99px;font-family:var(--sans);line-height:1.6;white-space:nowrap;
 }
 #verBadge{
   cursor:pointer;pointer-events:auto;-webkit-user-select:none;user-select:none;font-size:9.5px;font-weight:700;letter-spacing:.4px;
@@ -658,6 +707,12 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 .wn-overlay.hidden{display:none}
 .wn-card{background:var(--bg);border-radius:22px;max-width:400px;width:100%;max-height:80vh;overflow-y:auto;padding:26px 22px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center}
 .wn-card::-webkit-scrollbar{display:none}
+/* Visually-hidden but available to screen readers (e.g. a <legend> we don't want to show). */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Rows in the one-time accessibility offer popup. */
+.a11y-offer-row{display:flex;gap:12px;align-items:flex-start;padding:12px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.a11y-offer-row:last-of-type{border-bottom:none}
+.a11y-offer-row input{margin-top:3px;width:18px;height:18px;flex:none;accent-color:var(--accent)}
 .wn-emoji{font-size:44px}
 .wn-title{font-family:var(--serif);font-size:26px;margin:6px 0 2px}
 .wn-ver{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:16px}
@@ -747,6 +802,8 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
     <div id="devIndicators"></div>
     <div id="verBadge"></div>
   </div>
+  <!-- Floating clock (preview feature) — top-left, version-badge style. Hidden unless toggled on. -->
+  <div id="floatClock" class="hidden" aria-hidden="true"></div>
 
   <!-- ============ WELCOME / ADD-TO-HOME-SCREEN (new users only) ============ -->
   <div id="welcome" class="screen hidden">
@@ -784,35 +841,35 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
     <div class="step" data-step="2">
       <h2>Tell me about you</h2>
       <p class="sub" style="margin-bottom:18px">Rough numbers are fine — we'll estimate your targets.</p>
-      <div class="field"><label>Name <span class="sub" style="font-weight:400">· optional</span></label>
+      <div class="field"><label for="obName">Name <span class="sub" style="font-weight:400">· optional</span></label>
         <input type="text" id="obName" placeholder="What should we call you?" autocomplete="given-name" maxlength="40">
         <div class="hint">🔒 Used to personalize your greetings (and included if you submit a bug report). We never sell or share it.</div>
       </div>
       <div class="row">
-        <div class="field"><label>Weight (lb)</label><input type="number" id="weight" inputmode="numeric" min="20" max="500" placeholder="170"></div>
-        <div class="field"><label>Height</label>
+        <div class="field"><label for="weight">Weight (lb)</label><input type="number" id="weight" inputmode="numeric" min="20" max="500" placeholder="170" aria-describedby="weightErr"><div class="field-err" id="weightErr" role="alert" style="display:none"></div></div>
+        <div class="field"><label for="heightFt">Height</label>
           <div class="row" style="gap:8px">
-            <select id="heightFt" style="flex:1"></select>
-            <select id="heightIn" style="flex:1"></select>
+            <select id="heightFt" style="flex:1" aria-label="Height in feet"></select>
+            <select id="heightIn" style="flex:1" aria-label="Height in inches"></select>
           </div>
         </div>
       </div>
       <div class="field">
-        <label>Sex</label>
+        <label for="sex">Sex</label>
         <select id="sex"><option value="m">Male</option><option value="f">Female</option></select>
       </div>
       <div class="field">
-        <label>Birthday <span class="sub" style="font-weight:400">· optional</span></label>
+        <label for="obMonth">Birthday <span class="sub" style="font-weight:400">· optional</span></label>
         <div class="row" style="gap:8px">
-          <select id="obMonth" style="flex:1.4"></select>
-          <select id="obDay" style="flex:1"></select>
-          <select id="obYear" style="flex:1.1"></select>
+          <select id="obMonth" style="flex:1.4" aria-label="Birth month"></select>
+          <select id="obDay" style="flex:1" aria-label="Birth day"></select>
+          <select id="obYear" style="flex:1.1" aria-label="Birth year"></select>
         </div>
         <div class="hint">🔒 Used for just two things: birthday treats on your day, and slightly adjusting your calorie estimate for your age. Never shared. Leave the year on "Prefer not to say" to still get birthday treats without sharing your age — or skip it entirely.</div>
         <div class="leap-pref" id="obLeapPref" style="display:none;margin-top:10px"></div>
       </div>
       <div class="field">
-        <label>Activity level</label>
+        <label for="activity">Activity level</label>
         <select id="activity">
           <option value="1.2">Mostly sedentary</option>
           <option value="1.375">Lightly active (1-3 days/wk)</option>
@@ -848,7 +905,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
         <div class="chips" id="mealtypes"></div>
       </div>
       <div class="field">
-        <label>Budget <span class="sub" style="font-weight:400">· for your Today picks</span></label>
+        <label for="obBudget">Budget <span class="sub" style="font-weight:400">· for your Today picks</span></label>
         <select id="obBudget">
           <option value="tight">Tight — mostly $</option>
           <option value="middle">Middle — $ and $$</option>
@@ -893,7 +950,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
   </div>
 
   <!-- ============ HOME ============ -->
-  <div id="home" class="screen hidden">
+  <div id="home" class="screen hidden" role="main" aria-label="Home">
     <div class="hero">
       <div class="eyebrow" id="greet">Good day</div>
       <h1 id="homeTitle" style="margin-top:6px">Your plate today</h1>
@@ -916,14 +973,14 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
   </div>
 
   <!-- ============ RECIPES (browse all) ============ -->
-  <div id="browse" class="screen hidden">
+  <div id="browse" class="screen hidden" role="main" aria-label="Recipes">
     <div class="hero"><div class="eyebrow">Recipe box</div><h1 style="margin-top:6px">All meals for you</h1>
       <p class="sub" style="margin-top:8px">Every recipe lives here — your budget setting doesn't hide anything on this tab. Use the filters below to narrow it down.</p>
     </div>
     <div class="search-wrap">
       <span class="search-ic">🔍</span>
-      <input type="text" id="recipeSearch" placeholder="Search recipes or ingredients…" autocomplete="off">
-      <button id="searchClear" class="search-clear hidden">✕</button>
+      <input type="text" id="recipeSearch" placeholder="Search recipes or ingredients…" autocomplete="off" aria-label="Search recipes or ingredients">
+      <button id="searchClear" class="search-clear hidden" aria-label="Clear search">✕</button>
     </div>
     <div id="levelUpWrap"></div>
     <label class="sub" style="font-weight:600;display:block;margin-bottom:8px">Meal</label>
@@ -936,7 +993,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
   </div>
 
   <!-- ============ SHOPPING ============ -->
-  <div id="shop" class="screen hidden">
+  <div id="shop" class="screen hidden" role="main" aria-label="Shopping list">
     <div class="hero"><div class="eyebrow">Grocery run</div><h1 style="margin-top:6px">Shopping list</h1>
       <p class="sub" style="margin-top:8px">Add ingredients from any recipe, then check them off as you shop.</p>
     </div>
@@ -944,7 +1001,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
   </div>
 
   <!-- ============ CELEBRATIONS ============ -->
-  <div id="celebrate" class="screen hidden">
+  <div id="celebrate" class="screen hidden" role="main" aria-label="Occasions">
     <div id="occHome">
       <div class="hero"><div class="eyebrow">Special occasions</div><h1 style="margin-top:6px">Celebrations</h1>
         <p class="sub" style="margin-top:8px">Festive dishes for every holiday — and your birthday. Browse any occasion anytime, even if it's months away.</p>
@@ -961,7 +1018,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
   </div>
 
   <!-- ============ PROFILE ============ -->
-  <div id="profile" class="screen hidden">
+  <div id="profile" class="screen hidden" role="main" aria-label="Your plan">
     <div class="hero"><div class="eyebrow">Your plan</div><h1 id="profileTitle" style="margin-top:6px">Profile</h1></div>
     <div id="profContent"></div>
     <button class="btn" id="editBtn" style="margin-top:4px">Edit my info</button>
@@ -970,34 +1027,34 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 
   <!-- ============ EDIT SHEET ============ -->
   <div id="editSheet" class="edit-sheet">
-    <div class="edit-head"><h1>Edit your info</h1><button class="close-x" id="closeEdit" style="position:static">✕</button></div>
+    <div class="edit-head"><h1>Edit your info</h1><button class="close-x" id="closeEdit" style="position:static" aria-label="Close">✕</button></div>
     <div id="weightFixBanner" class="warn-banner" style="display:none">⚠️ Your saved weight looks off. Please enter a weight between <b>20</b> and <b>500 lb</b> to keep your plan accurate before continuing.</div>
-    <div class="field"><label>Name <span class="sub" style="font-weight:400">· optional</span></label>
+    <div class="field"><label for="eName">Name <span class="sub" style="font-weight:400">· optional</span></label>
       <input type="text" id="eName" placeholder="What should we call you?" maxlength="40">
       <div class="hint">Only used to personalize your greetings. We never sell or share your data.</div>
     </div>
     <div class="row">
-      <div class="field"><label>Weight (lb)</label><input type="number" id="eWeight" inputmode="numeric" min="20" max="500"></div>
-      <div class="field"><label>Height</label>
+      <div class="field"><label for="eWeight">Weight (lb)</label><input type="number" id="eWeight" inputmode="numeric" min="20" max="500" aria-describedby="eWeightErr"><div class="field-err" id="eWeightErr" role="alert" style="display:none"></div></div>
+      <div class="field"><label for="eHeightFt">Height</label>
         <div class="row" style="gap:8px">
-          <select id="eHeightFt" style="flex:1"></select>
-          <select id="eHeightIn" style="flex:1"></select>
+          <select id="eHeightFt" style="flex:1" aria-label="Height in feet"></select>
+          <select id="eHeightIn" style="flex:1" aria-label="Height in inches"></select>
         </div>
       </div>
     </div>
     <div class="field">
-      <label>Birthday <span class="sub" style="font-weight:400">· optional, age updates automatically</span></label>
+      <label for="eMonth">Birthday <span class="sub" style="font-weight:400">· optional, age updates automatically</span></label>
       <div class="row" style="gap:8px">
-        <select id="eMonth" style="flex:1.4"></select>
-        <select id="eDay" style="flex:1"></select>
-        <select id="eYear" style="flex:1.1"></select>
+        <select id="eMonth" style="flex:1.4" aria-label="Birth month"></select>
+        <select id="eDay" style="flex:1" aria-label="Birth day"></select>
+        <select id="eYear" style="flex:1.1" aria-label="Birth year"></select>
       </div>
       <div class="hint">Leave the year on "Prefer not to say" to keep birthday treats without sharing your age.</div>
       <div class="leap-pref" id="eLeapPref" style="display:none;margin-top:10px"></div>
     </div>
-    <div class="field"><label>Sex</label><select id="eSex"><option value="m">Male</option><option value="f">Female</option></select></div>
+    <div class="field"><label for="eSex">Sex</label><select id="eSex"><option value="m">Male</option><option value="f">Female</option></select></div>
     <div class="field">
-      <label>Activity level</label>
+      <label for="eActivity">Activity level</label>
       <select id="eActivity">
         <option value="1.2">Mostly sedentary</option>
         <option value="1.375">Lightly active (1-3 days/wk)</option>
@@ -1006,11 +1063,11 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
       </select>
     </div>
     <div class="field">
-      <label>Goal</label>
+      <label for="eGoal">Goal</label>
       <select id="eGoal"></select>
     </div>
     <div class="field">
-      <label>Food preferences</label>
+      <label for="eFoodPrefsBtn">Food preferences</label>
       <button type="button" class="set-select" id="eFoodPrefsBtn" style="width:100%;text-align:left;cursor:pointer">Edit foods you prefer or avoid…</button>
     </div>
     <button class="btn" id="saveEdit" style="margin-top:8px">Save changes</button>
@@ -1018,14 +1075,14 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 
   <!-- ============ FOOD PREFERENCES EDITOR ============ -->
   <div id="prefEditSheet" class="edit-sheet">
-    <div class="edit-head"><h1>Food preferences</h1><button class="close-x" id="closePrefEdit" style="position:static">✕</button></div>
+    <div class="edit-head"><h1>Food preferences</h1><button class="close-x" id="closePrefEdit" style="position:static" aria-label="Close">✕</button></div>
     <p class="sub" style="margin-bottom:16px">Set how you feel about each food. <b>Avoid</b> hides matching recipes; <b>Prefer</b> boosts them. Changes apply to your recommendations right away.</p>
     <div id="prefEditList"></div>
   </div>
 
   <!-- ============ DETAIL SHEET ============ -->
   <div id="sheet" class="sheet">
-    <button class="close-x" id="closeSheet">✕</button>
+    <button class="close-x" id="closeSheet" aria-label="Close recipe">✕</button>
     <div class="sheet-hero" id="sheetHero"><div class="emoji" id="sheetEmoji">🍽️</div></div>
     <div class="sheet-body" id="sheetBody"></div>
   </div>
@@ -1033,23 +1090,23 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
   <!-- ============ SETTINGS ============ -->
   <button class="gear-btn hidden" id="gearBtn" aria-label="Settings">⚙️</button>
   <div id="settingsSheet" class="edit-sheet">
-    <div class="edit-head"><h1>Settings</h1><button class="close-x" id="closeSettings" style="position:static">✕</button></div>
+    <div class="edit-head"><h1>Settings</h1><button class="close-x" id="closeSettings" style="position:static" aria-label="Close settings">✕</button></div>
     <div id="settingsBody"></div>
     <p class="sub" id="settingsFooter" style="text-align:center;margin-top:24px;font-size:12px">Plate · your personal meal planner</p>
   </div>
 
   <!-- ============ STATE PICKER ============ -->
   <div id="statePicker" class="state-picker">
-    <div class="edit-head"><h1>Your state</h1><button class="close-x" id="closeStatePicker" style="position:static">✕</button></div>
+    <div class="edit-head"><h1>Your state</h1><button class="close-x" id="closeStatePicker" style="position:static" aria-label="Close state picker">✕</button></div>
     <div class="search-wrap">
       <span class="search-ic">🔍</span>
-      <input type="text" id="stateSearch" placeholder="Search your state…" autocomplete="off">
+      <input type="text" id="stateSearch" placeholder="Search your state…" autocomplete="off" aria-label="Search your state">
     </div>
     <div id="stateList"></div>
   </div>
 
   <!-- ============ TAB BAR ============ -->
-  <nav class="tabbar hidden" id="tabbar">
+  <nav class="tabbar hidden" id="tabbar" aria-label="Main navigation">
     <button data-tab="home" class="active"><span class="ic">🍽️</span>Today</button>
     <button data-tab="browse"><span class="ic">📖</span>Recipes</button>
     <button data-tab="celebrate"><span class="ic">🎉</span>Occasions</button>
@@ -1065,10 +1122,27 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
       <div class="wn-emoji">👋</div>
       <h2 class="wn-title">What should we call you?</h2>
       <p class="sub" style="margin-bottom:16px">Add your name for personalized greetings like "Good morning, Alex." It's totally optional — you can skip it.</p>
-      <input type="text" id="namePromptInput" placeholder="Your name" maxlength="40" style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:14px;font-size:16px;font-family:var(--sans);background:var(--card);color:var(--ink)">
+      <input type="text" id="namePromptInput" placeholder="Your name" maxlength="40" aria-label="Your name" style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:14px;font-size:16px;font-family:var(--sans);background:var(--card);color:var(--ink)">
       <p class="sub" style="font-size:11.5px;margin-top:12px;line-height:1.5">🔒 Your name personalizes greetings in the app, and is included if you submit a bug report. We never sell or share your data.</p>
       <button class="btn" id="namePromptSave" style="margin-top:14px">Save name</button>
       <button class="btn ghost" id="namePromptSkip" style="margin-top:4px">Skip for now</button>
+    </div>
+  </div>
+
+  <!-- ============ ACCESSIBILITY OFFER POPUP (beta/preview, shown once) ============ -->
+  <div id="a11yOfferOverlay" class="wn-overlay hidden">
+    <div class="wn-card">
+      <div class="wn-emoji">♿️</div>
+      <h2 class="wn-title">Make Plate easier to use?</h2>
+      <p class="sub" style="margin-bottom:16px">Turn on any of these now — you can always change them later in Settings under Accessibility.</p>
+      <fieldset style="border:none;text-align:left">
+        <legend class="sr-only">Accessibility options</legend>
+        <label class="a11y-offer-row"><input type="checkbox" id="a11yOfferMotion"><span><b>Reduce motion</b><br><span class="sub" style="font-size:12.5px">Tone down animations and transitions.</span></span></label>
+        <label class="a11y-offer-row"><input type="checkbox" id="a11yOfferContrast"><span><b>Higher contrast</b><br><span class="sub" style="font-size:12.5px">Stronger text and borders for easier reading.</span></span></label>
+        <label class="a11y-offer-row"><input type="checkbox" id="a11yOfferText"><span><b>Larger text</b><br><span class="sub" style="font-size:12.5px">Increase the overall text and control size.</span></span></label>
+      </fieldset>
+      <button class="btn" id="a11yOfferApply" style="margin-top:14px">Apply</button>
+      <button class="btn ghost" id="a11yOfferSkip" style="margin-top:4px">Not now</button>
     </div>
   </div>
 
@@ -1108,7 +1182,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 <div id="devPwOverlay" class="wn-overlay hidden">
   <div class="wn-card" style="text-align:left">
     <h2 style="margin-bottom:12px">Enter password</h2>
-    <input type="password" id="devPwInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off" style="width:100%;padding:15px 16px;border:1.5px solid var(--line);border-radius:14px;font-size:16px;font-family:var(--sans);background:var(--card);color:var(--ink);letter-spacing:4px;text-align:center">
+    <input type="password" id="devPwInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Developer password" style="width:100%;padding:15px 16px;border:1.5px solid var(--line);border-radius:14px;font-size:16px;font-family:var(--sans);background:var(--card);color:var(--ink);letter-spacing:4px;text-align:center">
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="btn ghost" id="devPwCancel" style="flex:1;border:1px solid var(--line)">Cancel</button>
       <button class="btn" id="devPwGo" style="flex:1">Enter</button>
@@ -1169,7 +1243,11 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
      • FEATURE_VERSION  — the 27.x FEATURE PREVIEW path: next year's major release, where NEW
                           FEATURES accumulate. Shown as "<FEATURE_VERSION> preview". Owner-only.
    WHERE CHANGES GO:
-     • A new FEATURE  -> build it on the 27.x feature path; bump FEATURE_VERSION.
+     • A new FEATURE  -> build it on the 27.x feature path. The preview is FROZEN at 27.0 the whole
+                         time it's in preview (it IS the build being staged for the 27.0 public
+                         release), so do NOT bump ANY digit of FEATURE_VERSION — features just
+                         accumulate under "27.0 preview" until 27.0 ships to the public. (Beta MAY
+                         bump its own release digit, e.g. 26.13 -> 26.14, when staging a feature.)
      • A BUG FIX      -> build it on the 26.x bugfix path; bump the BUGFIX_VERSION *FIX* digit
                          (e.g. 26.13.0 -> 26.13.1 -> 26.13.2). Bump the RELEASE digit (26.13 -> 26.14)
                          ONLY if a genuine new FEATURE is staged on the beta line.
@@ -1194,15 +1272,42 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
    checklist. Keep the newest entry on top. It's dev-facing only — never shown to users, never in
    What's New. When a change ships to public, its TEST_NOTES entry can stay for history.
    ============================================================ */
-const APP_VERSION='26.13.0';         // PUBLIC stable version (26.x line)
-const BUGFIX_VERSION='26.13.1';      // 26.x bugfix beta path — bump the FIX digit for bug fixes; bump the RELEASE digit only if a feature is staged on beta
-const FEATURE_VERSION='27.0.0';      // 27.x feature preview path — shown as "27.0.0 preview" (owner-only). Always includes everything on the 26.x line.
+const APP_VERSION='26.14.0';         // PUBLIC stable version (26.x line)
+const BUGFIX_VERSION='26.15.1';      // 26.x beta path — next beta line. Carries the beta/preview-only accessibility toggles + baseline (keyboard, focus trapping, aria) staged for a future public release. .1: Settings footer + What's New label now show the active channel version (beta/preview), not the public one.
+const FEATURE_VERSION='27.0.0';      // 27.x feature preview path — FROZEN at 27.0 the whole time it's in preview (it IS the build staged for the 27.0 public release). Do NOT bump any digit until 27.0 ships to public. Always includes everything on the 26.x line.
 // Bug reports: when set to a Formspree endpoint (https://formspree.io/f/xxxxxxx), reports POST there
 // and get emailed to the owner. Empty = save on-device only (graceful fallback, no error).
 const FORMSPREE_ENDPOINT='https://formspree.io/f/mojgglak';
 /* TEST NOTES — dev-facing "where to look" checklist. Newest on top. Never shown to users.
    Each entry: what changed · where to go in the app · what to try to catch bugs. */
 const TEST_NOTES=[
+  {v:'26.15.1 (beta) — also fixes preview', changed:'Settings footer + What\'s New label now show the active channel version',
+   where:'Settings (⚙️) → scroll to the very bottom footer, and the "What\'s New" collapsible label.',
+   test:['On the BETA path: open Settings → the footer reads "… · 26.15.1 beta" and the What\'s New chip reads "26.15.1 beta" (NOT the public v26.14.0).','On the PREVIEW path: both read "27.0 preview".','On PUBLIC: both still read "v26.14.0" as before (no change).']},
+  {v:'26.14.0 (public) — code cleanup + safety', changed:'Deep cleanup pass: latent-crash guards, dead code removed, helpers consolidated',
+   where:'Whole app — this is a maintenance/hardening release. Nothing new is visible; verify nothing REGRESSED.',
+   test:['Home + You tabs load normally for a returning user (these got a guard so a missing/odd saved goal can never crash them). If you can, corrupt S.goal in devtools to a nonsense value and confirm both still render with the default goal.',
+         'Recipe detail → change the servings stepper: ingredient amounts still scale correctly, including fractions (1/2, 3/4) and ranges (2-3). This uses the consolidated amount helpers now.',
+         'Onboarding + Edit info: the Height ft/in dropdowns still populate and preselect the saved height (fillHeight now delegates to the shared builder).',
+         'Bug report still sends with the right version/channel (appVersionNumber now aliases activeChannelVersion).',
+         'Time-aware greeting (now PUBLIC): Home reads morning/afternoon/evening/night for the current time.']},
+  {v:'26.15.0 (beta) — also in 27.0 preview', changed:'Accessibility: in-app toggles + keyboard/screen-reader baseline (beta/preview ONLY)',
+   where:'Settings (⚙️) → new "Accessibility" section (beta/preview only). One-time offer pop-up shows right after finishing onboarding as a NEW beta/preview user. Keyboard/focus/label behavior is active on beta/preview only — the public app is unchanged.',
+   test:['Settings → Accessibility (beta path): toggle "Reduce motion" → animations/transitions snap instantly. Toggle "Higher contrast" → muted text/borders get darker/stronger. Toggle "Larger text" → the whole app scales up ~15%. Each applies immediately without leaving Settings, and survives a reload.',
+         'Confirm the Accessibility section, keyboard focus ring, and focus trapping do NOT appear/behave on the public app (beta/preview only). On public, tabbing shows no custom ring and cards are not keyboard-activatable.',
+         'Fresh beta/preview user: finish onboarding → a one-time "Make Plate easier to use?" pop-up offers the three toggles. Check some and Apply → they turn on; or Not now → nothing changes. Either way it never shows again.',
+         'Keyboard only (no mouse), beta path: Tab through Home/Recipes/Occasions/List/You — focus order follows the visual order and every card, chip, row, and button shows a clear focus ring. Press Enter or Space on a focused recipe card / goal / chip / list item → it activates just like a tap.',
+         'Pop-ups (recipe sheet, Edit info, Settings, state picker, What\'s New, name prompt): open one and Tab — focus stays trapped inside and cycles; press Escape or the ✕ → it closes and focus returns to whatever opened it.',
+         'Icon-only buttons (✕ close, ⭐ favorite, 🛒 cart, ⚙️ gear, 🔍 clear): confirm a screen reader announces a meaningful label, not just "button".',
+         'Forms: every field has a label; leave the weight blank or enter 5 or 999 → an inline text error appears under the field (not just a red border) and the field is announced invalid. Fix it → the error clears.',
+         'Pinch-to-zoom: confirm it is BLOCKED on mobile (it caused layout/scroll problems). "Larger text" in Settings is the supported way to enlarge the UI instead.',
+         'Reduced motion at the OS level (device Settings → Accessibility → Reduce Motion) calms animations on the beta/preview path even without the in-app toggle.']},
+  {v:'27.0 (preview)', changed:'Floating clock (preview-only feature)',
+   where:'On the FEATURE PREVIEW path: Settings → General → "Floating clock" toggle (and "Show date on clock" appears under it once on).',
+   test:['Toggle Floating clock ON → a clock appears at the top center in the version-badge style; confirm it shows the time.','Toggle "Show date on clock" → date appears next to the time; toggle off → date goes away.','Leave it a minute → time updates. Toggle clock OFF → it disappears.','Confirm the clock does NOT appear on the public app or the beta path (preview-only).']},
+  {v:'26.14.0 (public greeting / beta auto-update)', changed:'Auto-update (beta) + time-aware greeting (now public)',
+   where:'Home screen greeting (public); auto-update runs in the background on the beta path.',
+   test:['Home greeting: confirm it reads morning / afternoon / evening / night appropriately for the current time (this is now live for everyone).','Auto-update (LIVE site only, beta path): deploy a newer build to Vercel — within ~5 min (or on reopen) the beta app should reload itself. Only works on the deployed site, not this preview host.']},
   {v:'dev tools', changed:'Added "🔑 Re-enter password" to both dev + beta panels',
    where:'Triple-tap version badge → enter any password → panel → "🔑 Re-enter password".',
    test:['From the beta panel (0000), tap Re-enter password, enter 092810 → confirm you land in the full Developer tools.','Confirm it works both directions (dev → beta too), and that Cancel just closes without changing anything.']},
@@ -1216,6 +1321,10 @@ const TEST_NOTES=[
          'On the 27.0.0 feature preview path (dev tools → Feature preview ON), confirm a bug report still sends and its channel reads "Feature preview 27.0.0" — proves the beta change carried into preview cleanly.']},
 ];
 const CHANGELOG=[
+  {v:'26.14.0',date:'Aug 3, 2026',time:'1:15 PM CDT',type:'feature',title:'Time-aware greeting + under-the-hood cleanup',
+   notes:['The home greeting now follows the time of day — "Good morning", "Good afternoon", "Good evening", or "Good night".','Fixed: the Home and You screens could fail to load if your saved goal ever got into an unexpected state — they now always fall back gracefully.','General code cleanup and small performance tidy-ups for a smoother, more reliable app. No changes to your data.']},
+  {v:'26.13.1',date:'Aug 3, 2026',time:'3:00 AM CDT',type:'fix',title:'Bug reports now confirm they actually sent',
+   notes:['Fixed: a bug report could say "sent" even when it didn\'t actually go through. The app now waits for real confirmation before marking a report as sent — if it doesn\'t go through, the report stays saved on your device so you can send it again with one tap.']},
   {v:'26.13.0',date:'Aug 3, 2026',time:'2:26 AM CDT',type:'feature',title:'Bug reports now reach the team',
    notes:['The "Report a bug" form now sends your report to us — with the date, time, and app version — instead of only saving it on your device. A copy is still kept on-device.','If you have any older reports saved on your device, you can upload them all at once with one tap.','Privacy note updated: submitting a bug report includes your name so we know who it came from. Nothing is ever sent unless you tap send.']},
   {v:'26.12.4',date:'Jul 28, 2026',time:'3:46 AM CDT',type:'fix',title:'Removed the empty space under the iPhone bottom bar',
@@ -1359,12 +1468,14 @@ const CHANGELOG=[
    Newest entry on top, same shape as CHANGELOG. Add here when staging beta/preview changes;
    move the note into the public CHANGELOG when the change ships to the public app. */
 const BETA_CHANGELOG=[
-  {v:'26.13.1',date:'Aug 3, 2026',type:'tweak',title:'Beta up to date with the public app',
-   notes:['26.13.0 (bug reports that send to the team) has shipped to everyone. This beta line is clean and ready for the next round of fixes.']},
+  {v:'26.15.1',date:'Aug 3, 2026',type:'fix',title:'Correct version shown in Settings',
+   notes:['Fixed: on the beta and preview channels, the bottom of Settings (and the What\'s New label) showed the public version number instead of the beta/preview one. It now matches the channel you\'re on.']},
+  {v:'26.15.0',date:'Aug 3, 2026',type:'feature',title:'Accessibility (beta)',
+   notes:['New Accessibility section in Settings: Reduce motion, Higher contrast, and Larger text — each toggles on the fly.','New users get a one-time offer to turn these on right after setup.','Under the hood: full keyboard support (Tab / Enter / Space) for every card and control, a clear focus ring, focus that stays inside pop-ups and returns when they close, and screen-reader labels on icon buttons and form fields.','These are staged on beta for testing before a public release — the public app doesn\'t show them yet.']},
 ];
 const PREVIEW_CHANGELOG=[
-  {v:'27.0.0',date:'Aug 3, 2026',type:'feature',title:'Preview build — next year\'s release',
-   notes:['This is the 27.0 preview. It carries everything on the current public 26.x line (including the send-to-team bug reports) so you can test new features against the latest fixes.','No preview-only features added yet — the next new feature will land here first.']},
+  {v:'27.0',date:'Aug 3, 2026',type:'feature',title:'Floating clock',
+   notes:['New: an optional floating clock at the top center (Settings → General → Floating clock), with an option to show the date too.','Also carries everything on the current 26.x line: the new Accessibility toggles (reduce motion, higher contrast, larger text), auto-update, the time-aware greeting, and the public fixes.']},
 ];
 // The What's New log + version for the CURRENT channel (public / beta / preview).
 function activeChangelog(){return onFeaturePath()?PREVIEW_CHANGELOG:onBugfixPath()?BETA_CHANGELOG:CHANGELOG;}
@@ -2922,14 +3033,42 @@ function currentPath(){return localStorage.getItem('plate_path')||'';}
 function inDevEnv(){return currentSlot()==='dev';}
 function onFeaturePath(){return currentPath()==='feature';}
 function onBugfixPath(){return currentPath()==='bugfix';}
+// Accessibility preference toggles (reduced motion / high contrast / larger text)
+// are offered on the beta AND preview channels only for now — public stays untouched
+// until these are tested. Baseline accessibility (semantics, focus, keyboard,
+// aria-labels, focus trapping) ships to everyone regardless of this gate.
+function a11yAvailable(){return onBugfixPath()||onFeaturePath();}
 function activeSlot(){return currentSlot()==='dev'?'plate_v1_dev':'plate_v1';}
 function save(){localStorage.setItem(activeSlot(),JSON.stringify(S))}
 function load(){try{return JSON.parse(localStorage.getItem(activeSlot()))}catch(e){return null}}
 // Version label for the badge, driven by the release path (year-based numbering).
+// Preview shows the frozen "27.0" target (trailing .0 trimmed), never a fix digit.
 function displayVersion(){
-  if(onFeaturePath())return `${FEATURE_VERSION} preview`;
+  if(onFeaturePath())return `${featureLabel()} preview`;
   if(onBugfixPath())return `${BUGFIX_VERSION} beta`;
   return `v${APP_VERSION}`;
+}
+// The preview's display number — frozen 27.0 (trailing .0 trimmed), used everywhere it's shown.
+function featureLabel(){return FEATURE_VERSION.replace(/\.0$/,'');}
+/* Floating clock (PREVIEW feature, 27.x). Shows only on the feature-preview path when the user
+   turns it on in Settings. Optional date. Ticks every 30s while visible. */
+let clockTimer=null;
+function clockAvailable(){return onFeaturePath();}   // preview-only for now
+function renderClock(){
+  const el=document.getElementById('floatClock');if(!el)return;
+  const on=clockAvailable()&&!!(S.settings&&S.settings.showClock);
+  if(!on){el.classList.add('hidden');if(clockTimer){clearInterval(clockTimer);clockTimer=null;}return;}
+  const paint=()=>{
+    const d=new Date();
+    const t=d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+    const withDate=!!(S.settings&&S.settings.clockDate);
+    const ds=withDate?d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' · ':'';
+    el.textContent=`🕐 ${ds}${t}`;
+  };
+  paint();
+  el.classList.remove('hidden');
+  if(clockTimer)clearInterval(clockTimer);
+  clockTimer=setInterval(paint,30000);   // update twice a minute
 }
 
 /* ---------- Theme (light / dark / match device) ----------
@@ -2965,6 +3104,25 @@ function applyTheme(){
   if(bar)bar.setAttribute('content',mode==='dark'?'black-translucent':'default');
   renderDevIndicators();   // keep the dev-only badges in sync with dev colors / env state
 }
+// Apply the user's accessibility preferences to the <html> root. Each pref sets a
+// data-attribute that CSS keys off. Preferences persist per data slot in S.settings,
+// but they only take EFFECT when a11yAvailable() (beta/preview); on public the
+// attributes are cleared so the toggles have no lingering influence if a user
+// switches channels. Baseline accessibility is unaffected — it's always on.
+function applyA11y(){
+  const root=document.documentElement;
+  const avail=a11yAvailable();
+  // Baseline accessibility (focus ring, reduced-motion honoring, keyboard, focus trapping)
+  // is beta/preview-only for now — the flag gates both the CSS above and the JS below.
+  if(avail)root.setAttribute('data-a11y-baseline','on'); else root.removeAttribute('data-a11y-baseline');
+  const on=avail&&S.settings;
+  const motion=on&&S.settings.a11yReduceMotion;
+  const contrast=on&&S.settings.a11yHighContrast;
+  const text=on&&S.settings.a11yLargeText;
+  if(motion)root.setAttribute('data-a11y-motion','reduce'); else root.removeAttribute('data-a11y-motion');
+  if(contrast)root.setAttribute('data-a11y-contrast','on'); else root.removeAttribute('data-a11y-contrast');
+  if(text)root.setAttribute('data-a11y-text','large'); else root.removeAttribute('data-a11y-text');
+}
 // When in auto mode, re-apply if the OS theme changes while the app is open.
 if(window.matchMedia){
   try{ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{
@@ -2983,11 +3141,6 @@ function renderGoals(){
     </div>`).join('');
   document.querySelectorAll('[data-goal]').forEach(el=>el.onclick=()=>{S.goal=el.dataset.goal;renderGoals();updateNext()});
 }
-function chipHtml(arr,sel,cls=''){return arr.map((x,i)=>{
-  const val=typeof x==='string'?x:i;
-  const on=Array.isArray(sel)?sel.includes(x):sel===i;
-  return `<div class="chip ${cls} ${on?'sel':''}" data-val="${typeof x==='string'?x:i}">${typeof x==='string'?x:x}</div>`;
-}).join('')}
 
 function renderChips(){
   fillHeight();
@@ -3189,10 +3342,8 @@ function ordinal(n){
 }
 function fillHeight(){
   const ft=document.getElementById('heightFt'),inch=document.getElementById('heightIn');
-  if(!ft||ft.options.length)return;
-  const curFt=S.height?Math.floor(S.height/12):5, curIn=S.height?S.height%12:9;
-  ft.innerHTML=[4,5,6,7].map(f=>`<option value="${f}" ${f===curFt?'selected':''}>${f} ft</option>`).join('');
-  inch.innerHTML=Array.from({length:12},(_,i)=>`<option value="${i}" ${i===curIn?'selected':''}>${i} in</option>`).join('');
+  if(!ft||ft.options.length)return;   // already populated, or not on this screen
+  fillHeightSelect(ft,inch,+S.height||0);   // shared builder (defined near the Edit sheet)
 }
 
 function updateNext(){
@@ -3267,9 +3418,21 @@ document.getElementById('prefMultiApply').onchange=e=>{
 function requireValidWeight(id){
   const el=document.getElementById(id); const raw=(el&&el.value||'').trim();
   const n=+raw;
-  if(raw===''){toast('Please enter your weight');if(el)el.focus();return false;}
-  if(!isFinite(n)){toast('Please enter a valid weight');if(el)el.focus();return false;}
-  if(n<20||n>500){toast('Weight must be between 20 and 500 lb');if(el)el.focus();return false;}
+  // Show the message as inline text (linked via aria-describedby) AND a toast, and mark the
+  // field aria-invalid — never relying on the red border alone.
+  const errEl=document.getElementById(id==='eWeight'?'eWeightErr':'weightErr');
+  const fail=(msg)=>{
+    toast(msg);
+    if(errEl){errEl.textContent='⚠️ '+msg;errEl.style.display='block';}
+    if(el){el.setAttribute('aria-invalid','true');el.focus();}
+    return false;
+  };
+  if(raw==='')return fail('Please enter your weight');
+  if(!isFinite(n))return fail('Please enter a valid weight');
+  if(n<20||n>500)return fail('Weight must be between 20 and 500 lb');
+  // Valid — clear any prior error state.
+  if(errEl){errEl.textContent='';errEl.style.display='none';}
+  if(el)el.removeAttribute('aria-invalid');
   return true;
 }
 function clampNum(v,min,max,fallback){const n=+v; if(!isFinite(n)||n<min||n>max)return fallback; return n;}
@@ -3499,21 +3662,13 @@ function fmtMoney(n){return '$'+n.toFixed(2);}
 // number (e.g. "to taste", "a pinch", "generous") are left unchanged.
 function scaleAmount(amount,factor){
   if(factor===1||!amount)return amount;
-  const parseNum=s=>{ s=s.trim(); if(s.includes('/')){const[a,b]=s.split('/');return (+a)/(+b);} return parseFloat(s); };
-  const fmtNum=n=>{
-    n=Math.round(n*100)/100;
-    if(Number.isInteger(n))return String(n);
-    // convert common decimals back to friendly fractions
-    const frac={0.25:'1/4',0.33:'1/3',0.5:'1/2',0.67:'2/3',0.75:'3/4'};
-    const whole=Math.floor(n), rem=Math.round((n-whole)*100)/100;
-    if(frac[rem])return whole?`${whole} ${frac[rem]}`:frac[rem];
-    return String(n);
-  };
   // Replace leading number or range at the start of the string; keep the unit/text after it.
+  // Uses the shared amtParseNum / amtFmtNum helpers (defined below) so fraction/decimal parsing
+  // and friendly-fraction formatting live in one place.
   const m=amount.match(/^(\d+(?:\.\d+)?(?:\/\d+)?)(\s*-\s*(\d+(?:\.\d+)?(?:\/\d+)?))?/);
   if(!m)return amount; // no leading number → leave as-is (e.g. "to taste")
-  let out=fmtNum(parseNum(m[1])*factor);
-  if(m[3])out+='-'+fmtNum(parseNum(m[3])*factor);
+  let out=amtFmtNum(amtParseNum(m[1])*factor);
+  if(m[3])out+='-'+amtFmtNum(amtParseNum(m[3])*factor);
   return out+amount.slice(m[0].length);
 }
 // Shared number helpers (used by scaleAmount and the amount combiner).
@@ -3633,6 +3788,7 @@ function finishOnboarding(){
   S.lastSeenVersion=APP_VERSION;   // new user starts current; no "What's New" popup next load
   save();
   switchTab('home');
+  maybeOfferA11y();   // beta/preview: one-time offer to turn on accessibility prefs
 }
 
 function difficultyLabel(sk){return ['Beginner','Intermediate','Advanced'][sk]||'Beginner'}
@@ -3671,9 +3827,16 @@ function mealCardHtml(r){
   </div>`;
 }
 
+// Time-aware greeting: morning / afternoon / evening / night, based on the current hour.
+function timeGreeting(){
+  const h=new Date().getHours();
+  if(h<12)return 'Good morning';
+  if(h<17)return 'Good afternoon';
+  if(h<21)return 'Good evening';
+  return 'Good night';
+}
 function renderHome(){
-  const hr=new Date().getHours();
-  const dayGreet=hr<12?'Good morning':hr<18?'Good afternoon':'Good evening';
+  const dayGreet=timeGreeting();
   // If an occasion is TODAY, lead with a festive greeting in the eyebrow (unless turned off in settings).
   const greetingsOn=S.settings.festiveGreetings!==false;
   // Dev tools can force an occasion to preview its popups regardless of the date.
@@ -3686,10 +3849,13 @@ function renderHome(){
   const hv=document.getElementById('homeVersion');
   if(hv)hv.textContent=`Plate v${APP_VERSION}`;
   const t=targets();
+  // Guard: fall back to the default goal if S.goal is missing/unknown (older or corrupted saves)
+  // so the stat grid can never throw on an undefined goal.
+  const homeGoal=GOALS.find(g=>g.id===S.goal)||GOALS[3];
   document.getElementById('statGrid').innerHTML=`
     <div class="stat"><div class="n">${t.cals}</div><div class="l">Cal target</div></div>
     <div class="stat"><div class="n">${t.protein}<span class="u">g</span></div><div class="l">Protein</div></div>
-    <div class="stat"><div class="n">${GOALS.find(g=>g.id===S.goal).ic}</div><div class="l">${GOALS.find(g=>g.id===S.goal).t}</div></div>`;
+    <div class="stat"><div class="n">${homeGoal.ic}</div><div class="l">${homeGoal.t}</div></div>`;
   // holiday / birthday banner
   const up=forced?{o:forced,days:0,isLeapDay:(forced.id==='birthday'&&(devForceLeap||occNextDate(forced)?.isLeapDay))}:(greetingsOn?upcomingOccasion():null);
   const bannerEl=document.getElementById('holidayBanner');
@@ -4129,7 +4295,7 @@ function escAttr(s){return String(s).replace(/"/g,'&quot;');}
 /* ---------- Profile ---------- */
 function renderProfile(){
   const t=targets();
-  const g=GOALS.find(x=>x.id===S.goal);
+  const g=GOALS.find(x=>x.id===S.goal)||GOALS[3];   // guard against a missing/unknown saved goal
   const fn=firstName();
   document.getElementById('profileTitle').textContent=fn?`${fn}'s plan`:'Profile';
   document.getElementById('profContent').innerHTML=`
@@ -4353,7 +4519,16 @@ function renderSettings(){
       <h3>General</h3>
       ${selectRow('theme','Appearance','Choose a light or dark look, or match your device automatically.',[['auto','Match device'],['light','Light'],['dark','Dark']],'auto',true)}
       ${toggleRow('festiveGreetings','Holiday & birthday greetings','Show festive messages and the occasion banner on your home screen.',true)}
+      ${onFeaturePath()?toggleRow('showClock','Floating clock','Show a small clock in the top corner of the app.',false):''}
+      ${onFeaturePath()&&S.settings&&S.settings.showClock?toggleRow('clockDate','Show date on clock','Include today\'s date next to the time.',false):''}
     </div>
+    ${a11yAvailable()?`<div class="set-group">
+      <h3>Accessibility</h3>
+      <p class="sub" style="margin-bottom:10px">Adjust how the app looks and moves. These stay on this device.</p>
+      ${toggleRow('a11yReduceMotion','Reduce motion','Tone down animations and transitions across the app.',false)}
+      ${toggleRow('a11yHighContrast','Higher contrast','Strengthen text and borders for easier reading.',false)}
+      ${toggleRow('a11yLargeText','Larger text','Increase the overall text and control size.',false)}
+    </div>`:''}
     <div class="set-group">
       <h3>Add to Home Screen</h3>
       <div class="install-card" id="settingsInstall"></div>
@@ -4365,14 +4540,14 @@ function renderSettings(){
     <div class="set-group">
       <button class="cl-toggle" id="changelogToggle" aria-expanded="false">
         <h3 style="margin:0">What's New</h3>
-        <span class="cl-tog-meta"><span id="changelogVer">v${APP_VERSION}</span><span class="cl-chev">›</span></span>
+        <span class="cl-tog-meta"><span id="changelogVer">${displayVersion()}</span><span class="cl-chev">›</span></span>
       </button>
       <div id="changelogList" class="hidden"></div>
     </div>
     <div class="set-group">
       <h3>Report a bug</h3>
       <p class="sub" style="margin-bottom:10px">${bugSending?'Found something broken or off? Describe it and tap send — it goes straight to the team, and a copy is kept here on your device.':'Found something broken or off? Jot it down and it\'s saved here on your device so you can review it.'}</p>
-      <textarea id="bugText" placeholder="What went wrong? What were you doing when it happened?" rows="3" style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:14px;font-size:14px;font-family:var(--sans);background:var(--card);color:var(--ink);resize:vertical"></textarea>
+      <textarea id="bugText" placeholder="What went wrong? What were you doing when it happened?" rows="3" aria-label="Describe the bug" style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:14px;font-size:14px;font-family:var(--sans);background:var(--card);color:var(--ink);resize:vertical"></textarea>
       <button class="btn" id="bugSubmit" style="margin-top:8px">${bugSending?'📤 Send bug report':'Save bug report'}</button>
       <div id="bugList" style="margin-top:12px"></div>
     </div>
@@ -4400,7 +4575,7 @@ function renderSettings(){
     clToggle.classList.toggle('open',open);
   };
   const foot=document.getElementById('settingsFooter');
-  if(foot)foot.textContent=`Plate · your personal meal planner · v${APP_VERSION}`;
+  if(foot)foot.textContent=`Plate · your personal meal planner · ${displayVersion()}`;
   // render inline privacy info (no popup buttons here)
   const pv=document.getElementById('privacyInline');
   if(pv)pv.innerHTML=`<div class="cl-item" style="text-align:left">${privacyHtml(false)}</div>`;
@@ -4412,6 +4587,11 @@ function renderSettings(){
   // wire toggles
   body.querySelectorAll('[data-toggle]').forEach(el=>el.onchange=()=>{
     S.settings[el.dataset.toggle]=el.checked;save();
+    // Clock toggles: update the floating clock live, and re-render Settings so the "show date"
+    // sub-toggle appears/disappears with the main clock toggle.
+    if(el.dataset.toggle==='showClock'||el.dataset.toggle==='clockDate'){renderClock();renderSettings();return;}
+    // Accessibility toggles apply to the <html> root immediately; no full re-render needed.
+    if(el.dataset.toggle==='a11yReduceMotion'||el.dataset.toggle==='a11yHighContrast'||el.dataset.toggle==='a11yLargeText'){applyA11y();return;}
     switchTab(currentTab);   // re-render current tab so the change shows immediately
   });
   // wire selects
@@ -4458,11 +4638,14 @@ function renderSettings(){
   };
 }
 // The report "channel" — Public, or which preview/beta path it came from — sent with every report.
-function channelLabel(){return onFeaturePath()?`Feature preview ${FEATURE_VERSION}`:onBugfixPath()?`Bugfix beta ${BUGFIX_VERSION}`:`Public ${APP_VERSION}`;}
+function channelLabel(){return onFeaturePath()?`Feature preview ${featureLabel()}`:onBugfixPath()?`Bugfix beta ${BUGFIX_VERSION}`:`Public ${APP_VERSION}`;}
 // The bare version number for the current channel (no "v"/"beta"/"preview" suffix).
-function appVersionNumber(){return onFeaturePath()?FEATURE_VERSION:onBugfixPath()?BUGFIX_VERSION:APP_VERSION;}
+// Alias of activeChannelVersion() — kept for readability at the bug-report call site.
+function appVersionNumber(){return activeChannelVersion();}
 // POST a single report to Formspree. Mandatory metadata: date, time, version, channel (beta or not).
-// Returns true on success. Marks the report as sent (so it isn't re-sent) and saves.
+// Returns true ONLY when Formspree actually confirms acceptance — a 2xx status is NOT enough on its
+// own (Formspree can return 200 with {"ok":false,"errors":[...]} for disabled/rate-limited/blocked
+// forms). We parse the body and require no errors; otherwise the report stays unsent.
 async function sendBugReport(report){
   if(!FORMSPREE_ENDPOINT)return false;
   const d=new Date(report.when);
@@ -4482,8 +4665,16 @@ async function sendBugReport(report){
         from:S.name||'(anonymous)'
       })
     });
-    if(res.ok){ report.sent=true; save(); return true; }
-  }catch(e){/* offline or blocked in the preview host — keep the local copy */}
+    if(!res.ok)return false;                       // HTTP error (4xx/5xx) — not sent
+    // Confirm via the response body. Formspree's AJAX API returns { ok:true, next:... } on real
+    // success. Require that positive signal — do NOT assume success from a bare 2xx or empty body,
+    // which is what caused reports to falsely show "sent". Fail safe = stays unsent, can retry.
+    let body=null;
+    try{ body=await res.json(); }catch(e){ body=null; }
+    const accepted = !!body && (body.ok===true || (!!body.next && body.errors==null && body.error==null));
+    if(!accepted)return false;
+    report.sent=true; save(); return true;
+  }catch(e){/* offline or blocked (e.g. inside the preview host) — keep the local copy */}
   return false;
 }
 // Send every saved report that hasn't been sent yet (the on-device backlog), one tap.
@@ -4620,6 +4811,39 @@ document.getElementById('namePromptSave').onclick=()=>{
   if(v)toast(`Nice to meet you, ${firstName()}! 👋`);
 };
 document.getElementById('namePromptSkip').onclick=()=>closeNamePrompt();
+
+/* ---------- Accessibility offer (beta/preview, one time) ----------
+   Shown once to new beta/preview users after they finish onboarding, offering the
+   same three preference toggles that live in Settings → Accessibility. We mark
+   S.a11yOffered so it never reappears; declining or applying both count as "offered".
+   Returns true if the popup was actually shown (so callers can chain popups). */
+function maybeOfferA11y(){
+  if(!a11yAvailable())return false;         // beta/preview only
+  if(S.a11yOffered)return false;             // already offered once
+  const ov=document.getElementById('a11yOfferOverlay');
+  if(!ov)return false;
+  // Pre-check any prefs already on (e.g. user set them in Settings before onboarding finished).
+  document.getElementById('a11yOfferMotion').checked=!!(S.settings&&S.settings.a11yReduceMotion);
+  document.getElementById('a11yOfferContrast').checked=!!(S.settings&&S.settings.a11yHighContrast);
+  document.getElementById('a11yOfferText').checked=!!(S.settings&&S.settings.a11yLargeText);
+  ov.classList.remove('hidden');
+  return true;
+}
+function closeA11yOffer(){
+  S.a11yOffered=true;save();
+  document.getElementById('a11yOfferOverlay').classList.add('hidden');
+}
+document.getElementById('a11yOfferApply').onclick=()=>{
+  if(!S.settings)S.settings={};
+  S.settings.a11yReduceMotion=document.getElementById('a11yOfferMotion').checked;
+  S.settings.a11yHighContrast=document.getElementById('a11yOfferContrast').checked;
+  S.settings.a11yLargeText=document.getElementById('a11yOfferText').checked;
+  save();applyA11y();
+  closeA11yOffer();
+  const any=S.settings.a11yReduceMotion||S.settings.a11yHighContrast||S.settings.a11yLargeText;
+  if(any)toast('Accessibility settings applied ♿️');
+};
+document.getElementById('a11yOfferSkip').onclick=()=>closeA11yOffer();
 
 /* ---------- Privacy popup ---------- */
 // Shared privacy content, reused by the popup and the Settings view.
@@ -4962,7 +5186,7 @@ function openDevTools(){
   const standalone=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
   document.getElementById('devTitle').textContent=isDev?'🛠️ Developer tools':'🧪 Beta tools';
   const meta=document.getElementById('devMeta');
-  const pathTag=onFeaturePath()?` · FEATURE ${FEATURE_VERSION}`:onBugfixPath()?` · BETA ${BUGFIX_VERSION}`:'';
+  const pathTag=onFeaturePath()?` · FEATURE ${featureLabel()}`:onBugfixPath()?` · BETA ${BUGFIX_VERSION}`:'';
   const slotTag=inDevEnv()?' · DEV SLOT':'';
   if(meta)meta.textContent=`${displayVersion()} · ${inOnboarding?'in sign-up':'tab: '+(currentTab||'—')}${standalone?' · web app':''}${pathTag}${slotTag}`;
   const wrap=document.getElementById('devButtons');
@@ -4971,7 +5195,7 @@ function openDevTools(){
   // 26.x bugfix beta — available to BOTH dev and beta testers.
   btns.push({label:`🐞 Bugfix beta (${BUGFIX_VERSION}): ${onBugfixPath()?'ON':'OFF'}`,fn:toggleBugfixPath});
   // 27.x feature preview — owner (dev) only.
-  if(isDev)btns.push({label:`🔬 Feature preview (${FEATURE_VERSION}): ${onFeaturePath()?'ON':'OFF'}`,fn:toggleFeaturePath});
+  if(isDev)btns.push({label:`🔬 Feature preview (${featureLabel()}): ${onFeaturePath()?'ON':'OFF'}`,fn:toggleFeaturePath});
   if(isDev){
     // Dev environment (data slot) — separate throwaway data, independent of the release path above.
     btns.push({label:`🧪 Dev environment: ${inDevEnv()?'ON':'OFF'}`,fn:toggleDevEnv});
@@ -5088,6 +5312,31 @@ function maybeReturnToPublic(){
   }
   return false;
 }
+/* AUTO-UPDATE (beta feature): fetch the live file, read its APP_VERSION, and if it's newer than the
+   running one, a new build was deployed — reload to pick it up. Runs on boot + every few minutes.
+   Guarded so it only reloads once, and only when the page has focus (avoids reloading mid-typing). */
+let updateChecked=false;
+async function checkForUpdate(){
+  try{
+    const res=await fetch(location.href,{cache:'no-store'});
+    if(!res.ok)return;
+    const text=await res.text();
+    const m=text.match(/const APP_VERSION='([^']+)'/);
+    if(!m)return;
+    const liveVer=m[1];
+    if(verNewer(liveVer,APP_VERSION)){
+      if(updateChecked)return; updateChecked=true;
+      toast('Updating to the latest version…');
+      setTimeout(()=>location.reload(true),1200);
+    }
+  }catch(e){/* offline or blocked (e.g. preview host) — try again on the next interval */}
+}
+// Poll for updates while the app is open (beta path only, for now).
+function startUpdateWatcher(){
+  if(!onBugfixPath())return;   // auto-update is the beta feature
+  checkForUpdate();                                   // once on boot
+  setInterval(()=>{ if(!document.hidden)checkForUpdate(); },5*60*1000);  // then every 5 min while visible
+}
 function devSkipOnboarding(){
   // Fill with RANDOM realistic values each time so testing sees varied data, then finish.
   const pick=a=>a[Math.floor(Math.random()*a.length)];
@@ -5159,8 +5408,11 @@ function boot(){
   // public first (before anything reads the path) so they see the release + its What's New.
   const returned=maybeReturnToPublic();
   applyTheme();   // set light/dark before first paint of the app UI
+  applyA11y();     // apply saved accessibility preferences (beta/preview) before first paint
   const vb=document.getElementById('verBadge'); if(vb)vb.textContent=displayVersion();
   wireDevTools();
+  renderClock();   // floating clock (preview feature) — shows only if on preview path + toggled on
+  startUpdateWatcher();   // auto-reload when a newer build is deployed (beta path feature)
   if(returned)toast('A new version is out — you\'re back on the public app 🎉');
   renderGoals();renderChips();
   // Full privacy statement at the end of onboarding (last step, above "Build my plan").
@@ -5190,6 +5442,170 @@ function boot(){
     showWelcome();
   }
 }
+
+/* ============================================================
+   ACCESSIBILITY — keyboard activation for non-native controls
+   ------------------------------------------------------------
+   Many clickable cards/rows/chips in this app are <div>/<span>/<li>
+   elements wired with an .onclick property (not real <button>s). Those
+   are not keyboard-operable or announced to screen readers by default.
+   Rather than editing ~40 wire-up sites, we:
+     • enhance() any element matching the known clickable selectors —
+       give it role="button" (unless it's already a native control)
+       and tabindex="0" so it's focusable and announced.
+     • a single document-level keydown handler turns Enter / Space into
+       a click() on the focused element when it carries an .onclick.
+   A MutationObserver re-runs enhance() as screens re-render. onclick is
+   assigned synchronously during render, so it's present by the time the
+   observer callback fires. Gated to the beta/preview paths for now (see the
+   a11yAvailable() guard below) — the public app is unchanged.
+   ============================================================ */
+(function(){
+  // Beta/preview only for now: skip all keyboard-enhancement and focus-trapping
+  // wiring on the public app. (Matches applyA11y's data-a11y-baseline gate.)
+  if(!a11yAvailable())return;
+  // Selectors for elements that are clickable but not native buttons/links.
+  var A11Y_SEL = [
+    '[data-goal]','[data-pick]','[data-leap]','[data-recipe]','[data-occ]',
+    '[data-react]','[data-lu]','[data-leapfeature]','.chip','.qa-q',
+    '.cl-toggle','.shop-item','.saved-row','.state-row','#ingList li'
+  ].join(',');
+  var NATIVE = {BUTTON:1,A:1,INPUT:1,SELECT:1,TEXTAREA:1,SUMMARY:1};
+  function enhance(root){
+    if(!root||!root.querySelectorAll)return;
+    var list=root.querySelectorAll(A11Y_SEL);
+    for(var i=0;i<list.length;i++){
+      var el=list[i];
+      if(NATIVE[el.tagName])continue;            // native control already works
+      if(el.dataset.a11y==='1')continue;          // already enhanced
+      el.dataset.a11y='1';
+      if(!el.hasAttribute('role'))el.setAttribute('role','button');
+      if(!el.hasAttribute('tabindex'))el.setAttribute('tabindex','0');
+    }
+    // ingredient list items toggle a checked state — expose it
+    var ing=root.querySelectorAll('#ingList li');
+    for(var j=0;j<ing.length;j++){
+      ing[j].setAttribute('role','checkbox');
+      ing[j].setAttribute('aria-checked', ing[j].classList.contains('done')?'true':'false');
+    }
+  }
+  // Enter / Space activates the focused non-native control.
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Enter'&&e.key!==' '&&e.key!=='Spacebar')return;
+    var el=document.activeElement;
+    if(!el||NATIVE[el.tagName])return;            // let native controls handle their own keys
+    if(el.getAttribute('role')!=='button'&&el.getAttribute('role')!=='checkbox')return;
+    if(typeof el.onclick!=='function')return;
+    e.preventDefault();                            // stop Space from scrolling the page
+    el.click();
+    if(el.getAttribute('role')==='checkbox'){
+      el.setAttribute('aria-checked', el.classList.contains('done')?'true':'false');
+    }
+  });
+  // Re-run as the app re-renders screens.
+  if('MutationObserver' in window){
+    var mo=new MutationObserver(function(muts){
+      for(var i=0;i<muts.length;i++){
+        var added=muts[i].addedNodes;
+        for(var k=0;k<added.length;k++){
+          if(added[k].nodeType===1)enhance(added[k]);
+        }
+      }
+    });
+    mo.observe(document.body,{childList:true,subtree:true});
+  }
+  // Initial pass once the DOM is ready.
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){enhance(document.body);});
+  }else{
+    enhance(document.body);
+  }
+
+  /* ---- Modal / overlay focus trapping + return focus -------------------
+     Modals toggle a class instead of calling a central open() we can hook,
+     so we watch each one's class attribute. When it becomes visible we:
+       • remember the element that had focus (the trigger),
+       • mark it role="dialog" aria-modal, and move focus inside,
+       • trap Tab within it and close on Escape.
+     When it hides again we restore focus to the trigger. (Beta/preview only, per
+     the a11yAvailable() guard at the top of this IIFE.)
+     Each entry: [id, openWhenClassPresent, className]. For overlays the
+     "open" state is the ABSENCE of 'hidden', so we invert with a leading '!'. */
+  var MODALS=[
+    ['sheet','open'],['editSheet','open'],['prefEditSheet','open'],
+    ['settingsSheet','open'],['statePicker','open'],
+    ['namePromptOverlay','!hidden'],['whatsNewOverlay','!hidden'],
+    ['privacyOverlay','!hidden'],['exportHelpOverlay','!hidden'],
+    ['a11yOfferOverlay','!hidden'],
+    ['devOverlay','!hidden'],['devPwOverlay','!hidden']
+  ];
+  var FOCUSABLE='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"]),[role="button"]';
+  var openModal=null, modalTrigger=null;
+  function isOpen(el,rule){
+    var neg=rule.charAt(0)==='!';
+    var cls=neg?rule.slice(1):rule;
+    var has=el.classList.contains(cls);
+    return neg?!has:has;
+  }
+  function focusables(el){
+    return Array.prototype.filter.call(el.querySelectorAll(FOCUSABLE),function(n){
+      return n.offsetWidth>0||n.offsetHeight>0||n===document.activeElement;
+    });
+  }
+  function onModalOpen(el){
+    if(openModal===el)return;
+    modalTrigger=document.activeElement;      // remember what to return focus to
+    openModal=el;
+    if(!el.hasAttribute('role'))el.setAttribute('role','dialog');
+    el.setAttribute('aria-modal','true');
+    // Move focus to the first focusable control inside (skip the ✕ if there's more).
+    var f=focusables(el);
+    if(f.length){ (f.length>1?f[1]:f[0]).focus(); }
+    else el.focus();
+  }
+  function onModalClose(el){
+    if(openModal!==el)return;
+    el.removeAttribute('aria-modal');
+    openModal=null;
+    // Return focus to whatever opened it, if it's still around.
+    if(modalTrigger&&document.contains(modalTrigger)&&modalTrigger.focus){
+      modalTrigger.focus();
+    }
+    modalTrigger=null;
+  }
+  // Trap Tab and handle Escape while a modal is open.
+  document.addEventListener('keydown',function(e){
+    if(!openModal)return;
+    if(e.key==='Escape'){
+      // Click the modal's close control if it has one.
+      var x=openModal.querySelector('.close-x,[data-modal-close]');
+      if(x){e.preventDefault();x.click();}
+      return;
+    }
+    if(e.key!=='Tab')return;
+    var f=focusables(openModal);
+    if(!f.length)return;
+    var first=f[0], last=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    else if(!openModal.contains(document.activeElement)){e.preventDefault();first.focus();}
+  });
+  // Watch each modal's class attribute for open/close transitions.
+  if('MutationObserver' in window){
+    MODALS.forEach(function(m){
+      var el=document.getElementById(m[0]);
+      if(!el)return;
+      var was=isOpen(el,m[1]);
+      new MutationObserver(function(){
+        var now=isOpen(el,m[1]);
+        if(now===was)return;
+        was=now;
+        if(now)onModalOpen(el); else onModalClose(el);
+      }).observe(el,{attributes:true,attributeFilter:['class']});
+    });
+  }
+})();
+
 boot();
 </script>
 </body>
