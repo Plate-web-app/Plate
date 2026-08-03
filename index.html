@@ -1170,7 +1170,9 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
                           FEATURES accumulate. Shown as "<FEATURE_VERSION> preview". Owner-only.
    WHERE CHANGES GO:
      • A new FEATURE  -> build it on the 27.x feature path; bump FEATURE_VERSION.
-     • A BUG FIX      -> build it on the 26.x bugfix path; bump BUGFIX_VERSION.
+     • A BUG FIX      -> build it on the 26.x bugfix path; bump the BUGFIX_VERSION *FIX* digit
+                         (e.g. 26.13.0 -> 26.13.1 -> 26.13.2). Bump the RELEASE digit (26.13 -> 26.14)
+                         ONLY if a genuine new FEATURE is staged on the beta line.
      • BETA -> PREVIEW ROLL-FORWARD: the 27.x feature preview is next year's build, so it must
        CONTAIN everything on the 26.x bugfix line. Anything added to the 26.x beta is ALSO in the
        preview automatically (single-file app = same code in every environment), so the owner can
@@ -1192,8 +1194,8 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
    checklist. Keep the newest entry on top. It's dev-facing only — never shown to users, never in
    What's New. When a change ships to public, its TEST_NOTES entry can stay for history.
    ============================================================ */
-const APP_VERSION='26.12.4';         // PUBLIC stable version (26.x line)
-const BUGFIX_VERSION='26.13.0';      // 26.x bugfix beta path — shown as "26.13.0 beta" (owner + beta testers)
+const APP_VERSION='26.13.0';         // PUBLIC stable version (26.x line)
+const BUGFIX_VERSION='26.13.1';      // 26.x bugfix beta path — bump the FIX digit for bug fixes; bump the RELEASE digit only if a feature is staged on beta
 const FEATURE_VERSION='27.0.0';      // 27.x feature preview path — shown as "27.0.0 preview" (owner-only). Always includes everything on the 26.x line.
 // Bug reports: when set to a Formspree endpoint (https://formspree.io/f/xxxxxxx), reports POST there
 // and get emailed to the owner. Empty = save on-device only (graceful fallback, no error).
@@ -1214,6 +1216,8 @@ const TEST_NOTES=[
          'On the 27.0.0 feature preview path (dev tools → Feature preview ON), confirm a bug report still sends and its channel reads "Feature preview 27.0.0" — proves the beta change carried into preview cleanly.']},
 ];
 const CHANGELOG=[
+  {v:'26.13.0',date:'Aug 3, 2026',time:'2:26 AM CDT',type:'feature',title:'Bug reports now reach the team',
+   notes:['The "Report a bug" form now sends your report to us — with the date, time, and app version — instead of only saving it on your device. A copy is still kept on-device.','If you have any older reports saved on your device, you can upload them all at once with one tap.','Privacy note updated: submitting a bug report includes your name so we know who it came from. Nothing is ever sent unless you tap send.']},
   {v:'26.12.4',date:'Jul 28, 2026',time:'3:46 AM CDT',type:'fix',title:'Removed the empty space under the iPhone bottom bar',
    notes:['Fixed the bottom navigation bar on iPhone: removed the large empty band that was showing below the icons, so the bar is now compact and sits flush at the bottom of the screen.']},
   {v:'26.12.3',date:'Jul 28, 2026',time:'3:32 AM CDT',type:'fix',title:'More bottom-bar polish + dark-mode preference tags',
@@ -1349,6 +1353,25 @@ const CHANGELOG=[
   {v:'1.0.0',date:'Jul 26, 2026',type:'feature',title:'Plate launches',
    notes:['Personalized meal recommendations, detailed recipes, shopping list, and celebrations.']},
 ];
+/* Channel-specific "What's New" logs. These show ONLY on their path (never on the public app):
+   • BETA_CHANGELOG    — shown while on the 26.x bugfix beta path (for beta testers).
+   • PREVIEW_CHANGELOG — shown while on the 27.x feature preview path (owner).
+   Newest entry on top, same shape as CHANGELOG. Add here when staging beta/preview changes;
+   move the note into the public CHANGELOG when the change ships to the public app. */
+const BETA_CHANGELOG=[
+  {v:'26.13.1',date:'Aug 3, 2026',type:'tweak',title:'Beta up to date with the public app',
+   notes:['26.13.0 (bug reports that send to the team) has shipped to everyone. This beta line is clean and ready for the next round of fixes.']},
+];
+const PREVIEW_CHANGELOG=[
+  {v:'27.0.0',date:'Aug 3, 2026',type:'feature',title:'Preview build — next year\'s release',
+   notes:['This is the 27.0 preview. It carries everything on the current public 26.x line (including the send-to-team bug reports) so you can test new features against the latest fixes.','No preview-only features added yet — the next new feature will land here first.']},
+];
+// The What's New log + version for the CURRENT channel (public / beta / preview).
+function activeChangelog(){return onFeaturePath()?PREVIEW_CHANGELOG:onBugfixPath()?BETA_CHANGELOG:CHANGELOG;}
+function activeChannelVersion(){return onFeaturePath()?FEATURE_VERSION:onBugfixPath()?BUGFIX_VERSION:APP_VERSION;}
+// Bug-report SENDING is live for everyone as of 26.13.0 (released from beta). Kept as a helper
+// so it's easy to re-gate a future in-progress change the same way.
+function bugSendingEnabled(){return true;}
 function changelogIcon(t){return t==='feature'?'✨':t==='fix'?'🔧':'🎨';}
 // Date (+ optional release time) shown next to each changelog entry in Settings.
 // Older entries have no `time` field, so they just show the date.
@@ -4309,6 +4332,8 @@ function selectRow(key,title,desc,opts,def,stacked){
 }
 function renderSettings(){
   const body=document.getElementById('settingsBody');
+  // Bug-report sending is live (released in 26.13.0); helper drives the label + copy.
+  const bugSending=bugSendingEnabled();
   /* ↑ settings render below */
   body.innerHTML=`
     <div class="set-group">
@@ -4346,9 +4371,9 @@ function renderSettings(){
     </div>
     <div class="set-group">
       <h3>Report a bug</h3>
-      <p class="sub" style="margin-bottom:10px">Found something broken or off? Jot it down and it's saved here on your device so you can review it. (Sending reports by email is planned for a future update.)</p>
+      <p class="sub" style="margin-bottom:10px">${bugSending?'Found something broken or off? Describe it and tap send — it goes straight to the team, and a copy is kept here on your device.':'Found something broken or off? Jot it down and it\'s saved here on your device so you can review it.'}</p>
       <textarea id="bugText" placeholder="What went wrong? What were you doing when it happened?" rows="3" style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:14px;font-size:14px;font-family:var(--sans);background:var(--card);color:var(--ink);resize:vertical"></textarea>
-      <button class="btn" id="bugSubmit" style="margin-top:8px">Save bug report</button>
+      <button class="btn" id="bugSubmit" style="margin-top:8px">${bugSending?'📤 Send bug report':'Save bug report'}</button>
       <div id="bugList" style="margin-top:12px"></div>
     </div>
     <div class="set-group">
@@ -4360,8 +4385,8 @@ function renderSettings(){
       <h3>Data</h3>
       <button class="btn ghost" id="setReset" style="border:1px solid var(--line)">Start over (clear all my data)</button>
     </div>`;
-  // render the changelog list
-  document.getElementById('changelogList').innerHTML=CHANGELOG.map(c=>`
+  // render the changelog list for the current channel (public / beta / preview)
+  document.getElementById('changelogList').innerHTML=activeChangelog().map(c=>`
     <div class="cl-item">
       <h4>${changelogIcon(c.type)} ${c.title}<span class="cl-vtag">v${c.v} · ${changelogWhen(c)}</span></h4>
       <ul>${c.notes.map(n=>`<li>${n}</li>`).join('')}</ul>
@@ -4424,7 +4449,8 @@ function renderSettings(){
     const report={id:Date.now(),when:now.toISOString(),text:txt,version:appVersionNumber(),channel:channelLabel()};
     S.bugReports.unshift(report);
     save();ta.value='';renderBugList();
-    if(!FORMSPREE_ENDPOINT){ toast('Bug report saved 🐛 Thank you!'); return; }
+    // Sending is gated to the beta/preview paths while it's still being tested. Public = save only.
+    if(!bugSendingEnabled()||!FORMSPREE_ENDPOINT){ toast('Bug report saved 🐛 Thank you!'); return; }
     toast('Sending your report…');
     const ok=await sendBugReport(report);
     toast(ok?'Report sent 🐛 Thank you!':'Saved on your device — we\'ll send it later.');
@@ -4464,7 +4490,7 @@ async function sendBugReport(report){
 async function uploadSavedReports(){
   const pending=(S.bugReports||[]).filter(r=>!r.sent);
   if(!pending.length){toast('No saved reports to upload');return;}
-  if(!FORMSPREE_ENDPOINT){toast('Sending isn\'t set up yet');return;}
+  if(!bugSendingEnabled()||!FORMSPREE_ENDPOINT){toast('Sending isn\'t available here');return;}
   toast(`Uploading ${pending.length} report${pending.length>1?'s':''}…`);
   let sent=0;
   for(const r of pending){ if(await sendBugReport(r))sent++; }
@@ -4472,16 +4498,16 @@ async function uploadSavedReports(){
   toast(sent?`Uploaded ${sent} report${sent>1?'s':''} 🐛`:'Couldn\'t upload — we\'ll try again later.');
 }
 /* ---------- BUG REPORTS ----------
-   Reports are saved locally in S.bugReports. TODO (future update, per the user): actually
-   SEND these by email. Right now there's no address/endpoint to send to, so they're stored
-   on-device and shown here for review. When email is added, wire bugSubmit to also send. */
+   Reports are saved locally in S.bugReports AND sent to the owner via Formspree (FORMSPREE_ENDPOINT)
+   when configured. Each send includes mandatory metadata: date, time, version, channel. If the
+   endpoint is empty or the send fails, the report stays saved on-device and can be uploaded later. */
 function renderBugList(){
   const el=document.getElementById('bugList');if(!el)return;
   const reports=S.bugReports||[];
   if(!reports.length){el.innerHTML='';return;}
   const pending=reports.filter(r=>!r.sent).length;
   // "Upload saved reports" button appears when there are unsent reports and sending is set up.
-  const uploadBtn=(pending&&FORMSPREE_ENDPOINT)
+  const uploadBtn=(pending&&FORMSPREE_ENDPOINT&&bugSendingEnabled())
     ? `<button class="btn" id="bugUploadAll" style="margin-bottom:10px">⬆️ Upload ${pending} saved report${pending>1?'s':''} now</button>` : '';
   el.innerHTML=`<p class="sub" style="font-weight:600;color:var(--ink);margin-bottom:8px">Your saved reports (${reports.length})</p>`+uploadBtn+
     reports.map(b=>`<div class="bug-item" data-bug="${b.id}">
@@ -5037,15 +5063,30 @@ function toggleDevEnv(){
 }
 // RELEASE PATH toggles ('plate_path'). The two paths are mutually exclusive; turning one on clears
 // the other. They run on whatever data slot you're currently in (real data by default).
+// When ENTERING a path we stamp the public version at that moment ('plate_path_pubver'); boot uses
+// it to auto-return the user to public once a NEWER public release ships (see maybeReturnToPublic).
 function toggleFeaturePath(){
-  if(onFeaturePath())localStorage.removeItem('plate_path');
-  else localStorage.setItem('plate_path','feature');
+  if(onFeaturePath()){localStorage.removeItem('plate_path');localStorage.removeItem('plate_path_pubver');}
+  else{localStorage.setItem('plate_path','feature');localStorage.setItem('plate_path_pubver',APP_VERSION);}
   location.reload();
 }
 function toggleBugfixPath(){
-  if(onBugfixPath())localStorage.removeItem('plate_path');
-  else localStorage.setItem('plate_path','bugfix');
+  if(onBugfixPath()){localStorage.removeItem('plate_path');localStorage.removeItem('plate_path_pubver');}
+  else{localStorage.setItem('plate_path','bugfix');localStorage.setItem('plate_path_pubver',APP_VERSION);}
   location.reload();
+}
+// On boot: if the user is on a preview/beta path AND the public app has released a NEWER version
+// since they entered it, drop them back to the public channel so they immediately see what shipped.
+function maybeReturnToPublic(){
+  const path=currentPath();
+  if(!path)return false;                       // already on public
+  const stamp=localStorage.getItem('plate_path_pubver');
+  if(stamp&&verNewer(APP_VERSION,stamp)){
+    localStorage.removeItem('plate_path');
+    localStorage.removeItem('plate_path_pubver');
+    return true;                               // moved back to public
+  }
+  return false;
 }
 function devSkipOnboarding(){
   // Fill with RANDOM realistic values each time so testing sees varied data, then finish.
@@ -5114,9 +5155,13 @@ function renderDevIndicators(){
    BOOT
 ============================================================ */
 function boot(){
+  // If a newer public release shipped while the user was on a beta/preview path, snap them back to
+  // public first (before anything reads the path) so they see the release + its What's New.
+  const returned=maybeReturnToPublic();
   applyTheme();   // set light/dark before first paint of the app UI
   const vb=document.getElementById('verBadge'); if(vb)vb.textContent=displayVersion();
   wireDevTools();
+  if(returned)toast('A new version is out — you\'re back on the public app 🎉');
   renderGoals();renderChips();
   // Full privacy statement at the end of onboarding (last step, above "Build my plan").
   const obPriv=document.getElementById('obPrivacy');
