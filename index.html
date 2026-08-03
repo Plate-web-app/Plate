@@ -274,6 +274,9 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 #devIndicators .di-colors{background:#8b5cf6}
 #devIndicators .di-skip{background:#c0392b}
 #devIndicators .di-forced{background:#2980b9}
+/* "What to test" checkable items (dev tools). */
+.tn-item{display:flex;align-items:flex-start;gap:8px;padding:5px 0;cursor:pointer;font-size:12px;line-height:1.45;-webkit-user-select:none;user-select:none}
+.tn-item .tn-box{flex:none;width:18px;height:18px;border:1.5px solid var(--line);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--green);background:var(--card);margin-top:1px}
 
 /* ---------- Home / dashboard ---------- */
 .hero{margin:8px 0 22px}
@@ -783,7 +786,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
       <p class="sub" style="margin-bottom:18px">Rough numbers are fine — we'll estimate your targets.</p>
       <div class="field"><label>Name <span class="sub" style="font-weight:400">· optional</span></label>
         <input type="text" id="obName" placeholder="What should we call you?" autocomplete="given-name" maxlength="40">
-        <div class="hint">🔒 Used only to personalize your greetings. We never sell or share it with anyone.</div>
+        <div class="hint">🔒 Used to personalize your greetings (and included if you submit a bug report). We never sell or share it.</div>
       </div>
       <div class="row">
         <div class="field"><label>Weight (lb)</label><input type="number" id="weight" inputmode="numeric" min="20" max="500" placeholder="170"></div>
@@ -1063,7 +1066,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
       <h2 class="wn-title">What should we call you?</h2>
       <p class="sub" style="margin-bottom:16px">Add your name for personalized greetings like "Good morning, Alex." It's totally optional — you can skip it.</p>
       <input type="text" id="namePromptInput" placeholder="Your name" maxlength="40" style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:14px;font-size:16px;font-family:var(--sans);background:var(--card);color:var(--ink)">
-      <p class="sub" style="font-size:11.5px;margin-top:12px;line-height:1.5">🔒 Your name is only used to personalize greetings in the app. We never sell or share your data with anyone.</p>
+      <p class="sub" style="font-size:11.5px;margin-top:12px;line-height:1.5">🔒 Your name personalizes greetings in the app, and is included if you submit a bug report. We never sell or share your data.</p>
       <button class="btn" id="namePromptSave" style="margin-top:14px">Save name</button>
       <button class="btn ghost" id="namePromptSkip" style="margin-top:4px">Skip for now</button>
     </div>
@@ -1168,6 +1171,11 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
    WHERE CHANGES GO:
      • A new FEATURE  -> build it on the 27.x feature path; bump FEATURE_VERSION.
      • A BUG FIX      -> build it on the 26.x bugfix path; bump BUGFIX_VERSION.
+     • BETA -> PREVIEW ROLL-FORWARD: the 27.x feature preview is next year's build, so it must
+       CONTAIN everything on the 26.x bugfix line. Anything added to the 26.x beta is ALSO in the
+       preview automatically (single-file app = same code in every environment), so the owner can
+       check the new change doesn't conflict with in-progress 27.x features. Never gate a bugfix
+       so it only runs on the beta path — it should behave the same on the feature preview too.
      • When the owner says a bugfix path is ready to release, roll it into APP_VERSION (26.x) with a
        CHANGELOG entry. When the year turns over / the feature line ships, 27.x becomes the new
        public APP_VERSION line.
@@ -1175,10 +1183,36 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
    The release PATH ('plate_path') is independent of the DATA SLOT ('plate_slot'): you can run a
    preview path on your REAL data (dogfooding) while the separate Dev environment slot stays
    available for throwaway testing. Both are toggled in the hidden dev tools.
+
+   ------------------------------------------------------------
+   TEST NOTES — WHERE TO LOOK AFTER EVERY CHANGE (owner requested):
+   EVERY time a feature or bug fix is made, add an entry to the TEST_NOTES array (defined just
+   below the version constants) describing: (1) what changed, (2) EXACTLY where in the app to go
+   look, and (3) what to try in order to spot bugs. This is the owner's "where do I go test this"
+   checklist. Keep the newest entry on top. It's dev-facing only — never shown to users, never in
+   What's New. When a change ships to public, its TEST_NOTES entry can stay for history.
    ============================================================ */
 const APP_VERSION='26.12.4';         // PUBLIC stable version (26.x line)
 const BUGFIX_VERSION='26.13.0';      // 26.x bugfix beta path — shown as "26.13.0 beta" (owner + beta testers)
-const FEATURE_VERSION='27.0.0';      // 27.x feature preview path — shown as "27.0.0 preview" (owner-only)
+const FEATURE_VERSION='27.0.0';      // 27.x feature preview path — shown as "27.0.0 preview" (owner-only). Always includes everything on the 26.x line.
+// Bug reports: when set to a Formspree endpoint (https://formspree.io/f/xxxxxxx), reports POST there
+// and get emailed to the owner. Empty = save on-device only (graceful fallback, no error).
+const FORMSPREE_ENDPOINT='https://formspree.io/f/mojgglak';
+/* TEST NOTES — dev-facing "where to look" checklist. Newest on top. Never shown to users.
+   Each entry: what changed · where to go in the app · what to try to catch bugs. */
+const TEST_NOTES=[
+  {v:'dev tools', changed:'Added "🔑 Re-enter password" to both dev + beta panels',
+   where:'Triple-tap version badge → enter any password → panel → "🔑 Re-enter password".',
+   test:['From the beta panel (0000), tap Re-enter password, enter 092810 → confirm you land in the full Developer tools.','Confirm it works both directions (dev → beta too), and that Cancel just closes without changing anything.']},
+  {v:'26.13.0 (beta) — also in 27.0.0 preview', changed:'Email bug reports + upload saved backlog + privacy disclosure',
+   where:'Settings (⚙️) → "Report a bug" section near the bottom.',
+   test:['Type a report and Submit — on the LIVE Vercel site it should say "Report sent" and arrive in your Formspree email (mojgglak). In this preview/host it only saves locally.',
+         'Check the saved report shows date, version, channel (e.g. "Bugfix beta 26.13.0"), and ✅ sent / 📥 saved.',
+         'If any reports are 📥 saved (unsent), tap "⬆️ Upload N saved reports now" and confirm they send + flip to ✅.',
+         'Open Settings → Privacy: confirm the new "🐛 Bug reports" entry and the updated name wording appear.',
+         'Onboarding name field + name prompt: confirm the hint mentions bug reports.',
+         'On the 27.0.0 feature preview path (dev tools → Feature preview ON), confirm a bug report still sends and its channel reads "Feature preview 27.0.0" — proves the beta change carried into preview cleanly.']},
+];
 const CHANGELOG=[
   {v:'26.12.4',date:'Jul 28, 2026',time:'3:46 AM CDT',type:'fix',title:'Removed the empty space under the iPhone bottom bar',
    notes:['Fixed the bottom navigation bar on iPhone: removed the large empty band that was showing below the icons, so the bar is now compact and sits flush at the bottom of the screen.']},
@@ -4378,17 +4412,64 @@ function renderSettings(){
   if(ei)ei.onclick=()=>{document.getElementById('settingsSheet').classList.remove('open');openEdit();};
   const sp=document.getElementById('statePickerBtn');
   if(sp)sp.onclick=openStatePicker;
-  // Bug reports (saved locally; email delivery planned — see BUG REPORTS note below).
+  // Bug reports (saved locally; sent to the owner via Formspree when configured).
   renderBugList();
   const bs=document.getElementById('bugSubmit');
-  if(bs)bs.onclick=()=>{
+  if(bs)bs.onclick=async()=>{
     const ta=document.getElementById('bugText');
     const txt=(ta.value||'').trim();
     if(!txt){toast('Type what went wrong first');return;}
-    S.bugReports.unshift({id:Date.now(),when:new Date().toISOString(),text:txt,version:APP_VERSION});
+    // Always save on-device first, so a report is never lost even if the send fails.
+    const now=new Date();
+    const report={id:Date.now(),when:now.toISOString(),text:txt,version:appVersionNumber(),channel:channelLabel()};
+    S.bugReports.unshift(report);
     save();ta.value='';renderBugList();
-    toast('Bug report saved 🐛 Thank you!');
+    if(!FORMSPREE_ENDPOINT){ toast('Bug report saved 🐛 Thank you!'); return; }
+    toast('Sending your report…');
+    const ok=await sendBugReport(report);
+    toast(ok?'Report sent 🐛 Thank you!':'Saved on your device — we\'ll send it later.');
+    renderBugList();
   };
+}
+// The report "channel" — Public, or which preview/beta path it came from — sent with every report.
+function channelLabel(){return onFeaturePath()?`Feature preview ${FEATURE_VERSION}`:onBugfixPath()?`Bugfix beta ${BUGFIX_VERSION}`:`Public ${APP_VERSION}`;}
+// The bare version number for the current channel (no "v"/"beta"/"preview" suffix).
+function appVersionNumber(){return onFeaturePath()?FEATURE_VERSION:onBugfixPath()?BUGFIX_VERSION:APP_VERSION;}
+// POST a single report to Formspree. Mandatory metadata: date, time, version, channel (beta or not).
+// Returns true on success. Marks the report as sent (so it isn't re-sent) and saves.
+async function sendBugReport(report){
+  if(!FORMSPREE_ENDPOINT)return false;
+  const d=new Date(report.when);
+  const dateStr=d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+  const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+  try{
+    const res=await fetch(FORMSPREE_ENDPOINT,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({
+        _subject:`Plate bug report — ${report.channel||('v'+ (report.version||''))}`,
+        date:dateStr,                 // mandatory
+        time:timeStr,                 // mandatory
+        version:report.version||'',   // mandatory
+        channel:report.channel||'',   // mandatory (beta / preview / public)
+        message:report.text,
+        from:S.name||'(anonymous)'
+      })
+    });
+    if(res.ok){ report.sent=true; save(); return true; }
+  }catch(e){/* offline or blocked in the preview host — keep the local copy */}
+  return false;
+}
+// Send every saved report that hasn't been sent yet (the on-device backlog), one tap.
+async function uploadSavedReports(){
+  const pending=(S.bugReports||[]).filter(r=>!r.sent);
+  if(!pending.length){toast('No saved reports to upload');return;}
+  if(!FORMSPREE_ENDPOINT){toast('Sending isn\'t set up yet');return;}
+  toast(`Uploading ${pending.length} report${pending.length>1?'s':''}…`);
+  let sent=0;
+  for(const r of pending){ if(await sendBugReport(r))sent++; }
+  renderBugList();
+  toast(sent?`Uploaded ${sent} report${sent>1?'s':''} 🐛`:'Couldn\'t upload — we\'ll try again later.');
 }
 /* ---------- BUG REPORTS ----------
    Reports are saved locally in S.bugReports. TODO (future update, per the user): actually
@@ -4398,9 +4479,13 @@ function renderBugList(){
   const el=document.getElementById('bugList');if(!el)return;
   const reports=S.bugReports||[];
   if(!reports.length){el.innerHTML='';return;}
-  el.innerHTML=`<p class="sub" style="font-weight:600;color:var(--ink);margin-bottom:8px">Your saved reports (${reports.length})</p>`+
+  const pending=reports.filter(r=>!r.sent).length;
+  // "Upload saved reports" button appears when there are unsent reports and sending is set up.
+  const uploadBtn=(pending&&FORMSPREE_ENDPOINT)
+    ? `<button class="btn" id="bugUploadAll" style="margin-bottom:10px">⬆️ Upload ${pending} saved report${pending>1?'s':''} now</button>` : '';
+  el.innerHTML=`<p class="sub" style="font-weight:600;color:var(--ink);margin-bottom:8px">Your saved reports (${reports.length})</p>`+uploadBtn+
     reports.map(b=>`<div class="bug-item" data-bug="${b.id}">
-      <div class="bug-meta">${new Date(b.when).toLocaleString()}${b.version?` · v${b.version}`:''}</div>
+      <div class="bug-meta">${new Date(b.when).toLocaleString()}${b.version?` · v${b.version}`:''}${b.channel?` · ${b.channel}`:''} · ${b.sent?'✅ sent':'📥 saved'}</div>
       <div class="bug-text"></div>
       <button class="bug-del" data-bug="${b.id}" aria-label="delete report">Delete</button>
     </div>`).join('');
@@ -4413,6 +4498,8 @@ function renderBugList(){
     S.bugReports=S.bugReports.filter(x=>String(x.id)!==btn.dataset.bug);save();renderBugList();
     toast('Report deleted');
   });
+  const up=document.getElementById('bugUploadAll');
+  if(up)up.onclick=uploadSavedReports;
 }
 
 /* ---------- State picker ---------- */
@@ -4515,9 +4602,10 @@ function privacyHtml(showButtons){
     <h2 class="wn-title">Your privacy</h2>
     <div class="wn-body">
       <p class="sub" style="margin-bottom:12px">We ask for a little info only to make Plate feel personal. Here's exactly what and why:</p>
-      <div class="wn-entry"><h4>👋 Your name</h4><ul><li>Used only to personalize greetings (like "Good morning, Alex") and your You page.</li></ul></div>
+      <div class="wn-entry"><h4>👋 Your name</h4><ul><li>Used to personalize greetings (like "Good morning, Alex") and your You page.</li><li>If you submit a bug report, your name is included with it so we know who it came from.</li></ul></div>
       <div class="wn-entry"><h4>🎂 Your birthday</h4><ul><li>Used for just two things: birthday popups and treats on your day, and slightly adjusting your calorie estimate for your age.</li><li>Nothing else. Your birthday is never shared.</li></ul></div>
-      <div class="wn-entry"><h4>🚫 We never sell your data</h4><ul><li>Everything stays on your device. We do not sell, share, or send your information to anyone — ever.</li></ul></div>
+      <div class="wn-entry"><h4>🐛 Bug reports</h4><ul><li>Only when you choose to submit one, we send the report you write — along with your name, the date/time, and your app version — so we can look into it. Nothing is sent unless you tap submit.</li></ul></div>
+      <div class="wn-entry"><h4>🚫 We never sell your data</h4><ul><li>Everything else stays on your device. We do not sell or share your information, and nothing leaves your device except bug reports you choose to send.</li></ul></div>
     </div>
     ${showButtons?`<button class="btn" id="privClose" style="margin-top:12px">Close</button>
     <button class="btn ghost" id="privHide" style="margin-top:4px">Don't show this again</button>`:''}`;
@@ -4829,6 +4917,18 @@ function submitDevPassword(){
   document.getElementById('devPwOverlay').classList.add('hidden');
   openDevTools();
 }
+// Re-enter the password to switch tiers (e.g. beta -> dev). Clears the current unlock and forces
+// the password box open, bypassing the "already in a dev/preview env" auto-skip.
+function reenterDevPassword(){
+  devMode=null;
+  localStorage.removeItem('plate_tier');
+  document.getElementById('devOverlay').classList.add('hidden');
+  const ov=document.getElementById('devPwOverlay');
+  const inp=document.getElementById('devPwInput');
+  inp.value='';
+  ov.classList.remove('hidden');
+  setTimeout(()=>inp.focus(),100);
+}
 function openDevTools(){
   const isDev=devMode==='dev';
   const inOnboarding=!document.getElementById('onboarding').classList.contains('hidden')
@@ -4860,12 +4960,50 @@ function openDevTools(){
   // Skip sign-up — only while sign-up is showing (both dev + beta).
   if(inOnboarding)btns.push({label:'⏭️ Skip sign-up (fill defaults)',fn:devSkipOnboarding});
   if(isDev)btns.push({label:'🎉 Holiday & birthday popups',fn:openHolidayMenu});
+  if(isDev)btns.push({label:'🔎 What to test',fn:openTestNotes});
   if(isDev)btns.push({label:'💾 Save app as HTML',fn:()=>{document.getElementById('devOverlay').classList.add('hidden');downloadApp();}});
+  btns.push({label:'🔑 Re-enter password',fn:reenterDevPassword});
   btns.push({label:'🔄 Reload app',fn:()=>location.reload()});
   btns.push({label:'🗑️ Reset all data & reload',danger:true,fn:devResetData});
   wrap.innerHTML=btns.map((b,i)=>`<button class="btn ${b.danger?'':'ghost'}" data-dev="${i}" style="${b.danger?'background:var(--accent)':'border:1px solid var(--line)'}">${b.label}</button>`).join('');
   wrap.querySelectorAll('[data-dev]').forEach(el=>el.onclick=()=>btns[+el.dataset.dev].fn());
   document.getElementById('devOverlay').classList.remove('hidden');
+}
+// Dev submenu: "What to test" — shows the newest TEST_NOTES entries (where to look, what to try).
+function openTestNotes(){
+  document.getElementById('devTitle').textContent='🔎 What to test';
+  const meta=document.getElementById('devMeta');
+  const notes=(TEST_NOTES||[]).slice(0,5);
+  // Count checked across shown notes for the meta summary.
+  if(!S.testChecks)S.testChecks={};
+  let total=0,done=0;
+  notes.forEach((n,ni)=>(n.test||[]).forEach((t,ti)=>{total++;if(S.testChecks[`${ni}:${ti}`])done++;}));
+  if(meta)meta.textContent=total?`Checked ${done}/${total} — tap items as you test`:'Where to look after recent changes';
+  const wrap=document.getElementById('devButtons');
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const html=notes.length?notes.map((n,ni)=>`
+    <div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-align:left">
+      <div style="font-weight:800;font-size:13px;color:var(--accent);margin-bottom:2px">${esc(n.v)}</div>
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px">${esc(n.changed)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px"><b>Go to:</b> ${esc(n.where)}</div>
+      ${(n.test||[]).map((t,ti)=>{const k=`${ni}:${ti}`,on=!!S.testChecks[k];return `<label class="tn-item" data-tn="${k}"><span class="tn-box">${on?'✓':''}</span><span class="tn-txt" style="${on?'text-decoration:line-through;opacity:.55':''}">${esc(t)}</span></label>`;}).join('')}
+    </div>`).join(''):'<p class="sub">No test notes yet.</p>';
+  wrap.innerHTML=`<div style="display:flex;flex-direction:column;gap:10px">${html}</div>`;
+  // Toggle a check on tap; persist and re-render so the count + strikethrough update.
+  wrap.querySelectorAll('[data-tn]').forEach(el=>el.onclick=()=>{
+    const k=el.dataset.tn;
+    if(S.testChecks[k])delete S.testChecks[k];else S.testChecks[k]=true;
+    save();openTestNotes();
+  });
+  if(total){
+    const reset=document.createElement('button');
+    reset.className='btn ghost';reset.style.cssText='margin-top:12px;border:1px solid var(--line)';reset.textContent='↺ Reset checks';
+    reset.onclick=()=>{S.testChecks={};save();openTestNotes();};
+    wrap.appendChild(reset);
+  }
+  const back=document.createElement('button');
+  back.className='btn ghost';back.style.cssText='margin-top:8px;border:1px solid var(--line)';back.textContent='‹ Back';
+  back.onclick=openDevTools;wrap.appendChild(back);
 }
 // Dev submenu: force any holiday/birthday's popups to preview them regardless of the date.
 // The forced state lives in a session variable (devForceOccasionId), so a reload clears it.
