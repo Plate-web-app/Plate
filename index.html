@@ -301,13 +301,19 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
   position:fixed;top:calc(env(safe-area-inset-top) + 13px);right:calc(max(0px,(100% - var(--frame))/2) + 62px);
   z-index:60;display:flex;flex-direction:row;align-items:center;gap:5px;pointer-events:none;
 }
-/* Floating clock (preview feature) — top CENTER, mirrors the version-badge style (slightly larger). */
+/* Floating clock (preview feature) — top CENTER, mirrors the version-badge style (slightly larger).
+   The top-right holds the version badge + gear, so the clock is capped to the space between the
+   two side clusters (≈70px reserved each side) and can never slide under them. When the date is
+   shown it's wider, so we drop the font a touch and tighten padding to keep it clear on phones. */
 #floatClock{
   position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:50%;transform:translateX(-50%);
   z-index:60;pointer-events:none;font-size:12px;font-weight:700;letter-spacing:.4px;
   color:var(--muted);opacity:.7;background:var(--card);border:1px solid var(--line);
   padding:3px 11px;border-radius:99px;font-family:var(--sans);line-height:1.6;white-space:nowrap;
+  max-width:calc(100% - 150px);overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;
 }
+/* With the date on it's a longer string — shrink slightly so it fits between the side chrome. */
+#floatClock.has-date{font-size:11px;letter-spacing:.2px;padding:3px 9px}
 #verBadge{
   cursor:pointer;pointer-events:auto;-webkit-user-select:none;user-select:none;font-size:9.5px;font-weight:700;letter-spacing:.4px;
   color:var(--muted);opacity:.55;background:var(--card);border:1px solid var(--line);
@@ -1243,14 +1249,19 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
      • FEATURE_VERSION  — the 27.x FEATURE PREVIEW path: next year's major release, where NEW
                           FEATURES accumulate. Shown as "<FEATURE_VERSION> preview". Owner-only.
    WHERE CHANGES GO:
+     • ⚠️ OWNER RULE — DO NOT bump BUGFIX_VERSION (the beta version) without ASKING THE OWNER FIRST.
+       The beta stays on its current line (e.g. 26.15.x) until the owner explicitly says to bump it.
+       This overrides the "bump for a feature" guidance below: even a new beta FEATURE keeps the
+       current beta line and only advances the FIX digit (e.g. 26.15.1 -> 26.15.2) UNLESS the owner
+       has said to do a release bump. Always ask before changing the beta's RELEASE digit.
      • A new FEATURE  -> build it on the 27.x feature path. The preview is FROZEN at 27.0 the whole
                          time it's in preview (it IS the build being staged for the 27.0 public
                          release), so do NOT bump ANY digit of FEATURE_VERSION — features just
-                         accumulate under "27.0 preview" until 27.0 ships to the public. (Beta MAY
-                         bump its own release digit, e.g. 26.13 -> 26.14, when staging a feature.)
+                         accumulate under "27.0 preview" until 27.0 ships to the public. (Beta only
+                         bumps when the owner asks — see the OWNER RULE above.)
      • A BUG FIX      -> build it on the 26.x bugfix path; bump the BUGFIX_VERSION *FIX* digit
-                         (e.g. 26.13.0 -> 26.13.1 -> 26.13.2). Bump the RELEASE digit (26.13 -> 26.14)
-                         ONLY if a genuine new FEATURE is staged on the beta line.
+                         (e.g. 26.13.0 -> 26.13.1 -> 26.13.2). Do NOT bump the RELEASE digit
+                         (26.15 -> 26.16) unless the OWNER has asked for it (see OWNER RULE above).
      • BETA -> PREVIEW ROLL-FORWARD: the 27.x feature preview is next year's build, so it must
        CONTAIN everything on the 26.x bugfix line. Anything added to the 26.x beta is ALSO in the
        preview automatically (single-file app = same code in every environment), so the owner can
@@ -1273,7 +1284,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
    What's New. When a change ships to public, its TEST_NOTES entry can stay for history.
    ============================================================ */
 const APP_VERSION='26.14.0';         // PUBLIC stable version (26.x line)
-const BUGFIX_VERSION='26.15.1';      // 26.x beta path — next beta line. Carries the beta/preview-only accessibility toggles + baseline (keyboard, focus trapping, aria) staged for a future public release. .1: Settings footer + What's New label now show the active channel version (beta/preview), not the public one.
+const BUGFIX_VERSION='26.15.2';      // 26.x beta path — kept on the 26.15.x line (owner asks before any release bump). .2 adds feedback types (Bug / Suggestion / Dish request). Also carries the beta/preview-only accessibility toggles + baseline staged for a future public release.
 const FEATURE_VERSION='27.0.0';      // 27.x feature preview path — FROZEN at 27.0 the whole time it's in preview (it IS the build staged for the 27.0 public release). Do NOT bump any digit until 27.0 ships to public. Always includes everything on the 26.x line.
 // Bug reports: when set to a Formspree endpoint (https://formspree.io/f/xxxxxxx), reports POST there
 // and get emailed to the owner. Empty = save on-device only (graceful fallback, no error).
@@ -1281,6 +1292,18 @@ const FORMSPREE_ENDPOINT='https://formspree.io/f/mojgglak';
 /* TEST NOTES — dev-facing "where to look" checklist. Newest on top. Never shown to users.
    Each entry: what changed · where to go in the app · what to try to catch bugs. */
 const TEST_NOTES=[
+  {v:'26.15.2 (beta) — also in 27.0 preview', changed:'Feedback types: Bug / Suggestion / Dish request',
+   where:'Settings (⚙️) → "Send feedback" section (beta/preview). Public still shows a plain "Report a bug".',
+   test:['Beta/preview: the form shows three chips — 🐞 Bug, 💡 Suggestion, 🍽️ Dish request. Tapping one selects it and changes the textarea placeholder.',
+         'Submit one of each type → each saves on-device with its type shown in the saved list (e.g. "🍽️ Dish request · …"), and on the LIVE site the email subject/body reflects the type.',
+         'Empty submit shows a type-appropriate prompt ("Describe your dish request first", etc.).',
+         'Public app: confirm the section is still just "Report a bug" with no type chips and the button reads "📤 Send bug report".',
+         'Switching type after typing keeps your text; only the placeholder/label change.']},
+  {v:'27.0 (preview) — clock fix', changed:'Floating clock no longer overlaps the top-right badges on mobile',
+   where:'Preview path: Settings → General → Floating clock ON, then "Show date on clock" ON. Look at the top of the screen on a narrow phone.',
+   test:['With the date ON, the centered clock stays clear of the version badge + gear on the right (previously overlapped). It shrinks slightly and is capped in width.',
+         'With the date OFF, the clock looks the same as before.',
+         'Rotate / resize: the clock never slides under the side chrome; if extremely cramped it truncates rather than overrunning.']},
   {v:'26.15.1 (beta) — also fixes preview', changed:'Settings footer + What\'s New label now show the active channel version',
    where:'Settings (⚙️) → scroll to the very bottom footer, and the "What\'s New" collapsible label.',
    test:['On the BETA path: open Settings → the footer reads "… · 26.15.1 beta" and the What\'s New chip reads "26.15.1 beta" (NOT the public v26.14.0).','On the PREVIEW path: both read "27.0 preview".','On PUBLIC: both still read "v26.14.0" as before (no change).']},
@@ -1468,6 +1491,8 @@ const CHANGELOG=[
    Newest entry on top, same shape as CHANGELOG. Add here when staging beta/preview changes;
    move the note into the public CHANGELOG when the change ships to the public app. */
 const BETA_CHANGELOG=[
+  {v:'26.15.2',date:'Aug 3, 2026',type:'feature',title:'Suggestions & dish requests',
+   notes:['The feedback form now lets you pick a type: 🐞 Bug, 💡 Suggestion, or 🍽️ Dish request.','Use "Dish request" to ask for a new dish to be added — it comes straight to the team, with a copy kept on your device like bug reports.','The type is shown on each saved report and included when it\'s sent.']},
   {v:'26.15.1',date:'Aug 3, 2026',type:'fix',title:'Correct version shown in Settings',
    notes:['Fixed: on the beta and preview channels, the bottom of Settings (and the What\'s New label) showed the public version number instead of the beta/preview one. It now matches the channel you\'re on.']},
   {v:'26.15.0',date:'Aug 3, 2026',type:'feature',title:'Accessibility (beta)',
@@ -1475,7 +1500,7 @@ const BETA_CHANGELOG=[
 ];
 const PREVIEW_CHANGELOG=[
   {v:'27.0',date:'Aug 3, 2026',type:'feature',title:'Floating clock',
-   notes:['New: an optional floating clock at the top center (Settings → General → Floating clock), with an option to show the date too.','Also carries everything on the current 26.x line: the new Accessibility toggles (reduce motion, higher contrast, larger text), auto-update, the time-aware greeting, and the public fixes.']},
+   notes:['New: an optional floating clock at the top center (Settings → General → Floating clock), with an option to show the date too.','Fixed: with the date shown, the clock could overlap the top-right badges on narrow phones — it now stays clear.','Also carries everything on the current 26.x line: feedback types (bug / suggestion / dish request), the Accessibility toggles, auto-update, the time-aware greeting, and the public fixes.']},
 ];
 // The What's New log + version for the CURRENT channel (public / beta / preview).
 function activeChangelog(){return onFeaturePath()?PREVIEW_CHANGELOG:onBugfixPath()?BETA_CHANGELOG:CHANGELOG;}
@@ -3038,6 +3063,17 @@ function onBugfixPath(){return currentPath()==='bugfix';}
 // until these are tested. Baseline accessibility (semantics, focus, keyboard,
 // aria-labels, focus trapping) ships to everyone regardless of this gate.
 function a11yAvailable(){return onBugfixPath()||onFeaturePath();}
+// Report type selector (Bug / Suggestion / Dish request) is a beta+preview feature for now.
+// On the public app the form stays a plain bug report until this is promoted.
+function reportTypesAvailable(){return onBugfixPath()||onFeaturePath();}
+// The three report kinds. `key` is stored/sent; `label` shows on the chip + in the saved list.
+const REPORT_TYPES=[
+  {key:'bug',label:'🐞 Bug',ph:'What went wrong? What were you doing when it happened?'},
+  {key:'suggestion',label:'💡 Suggestion',ph:'What would make Plate better? Share your idea.'},
+  {key:'dish',label:'🍽️ Dish request',ph:'What dish would you like added? Any details help.'},
+];
+function reportTypeLabel(key){const t=REPORT_TYPES.find(x=>x.key===key);return t?t.label:'🐞 Bug';}
+let reportType='bug';   // currently selected report type in Settings (beta/preview)
 function activeSlot(){return currentSlot()==='dev'?'plate_v1_dev':'plate_v1';}
 function save(){localStorage.setItem(activeSlot(),JSON.stringify(S))}
 function load(){try{return JSON.parse(localStorage.getItem(activeSlot()))}catch(e){return null}}
@@ -3064,6 +3100,9 @@ function renderClock(){
     const withDate=!!(S.settings&&S.settings.clockDate);
     const ds=withDate?d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' · ':'';
     el.textContent=`🕐 ${ds}${t}`;
+    // The date makes the pill wider — flag it so CSS can shrink it to stay clear of the
+    // top-right badge/gear on narrow phones (the reported overlap).
+    el.classList.toggle('has-date',withDate);
   };
   paint();
   el.classList.remove('hidden');
@@ -4545,10 +4584,11 @@ function renderSettings(){
       <div id="changelogList" class="hidden"></div>
     </div>
     <div class="set-group">
-      <h3>Report a bug</h3>
-      <p class="sub" style="margin-bottom:10px">${bugSending?'Found something broken or off? Describe it and tap send — it goes straight to the team, and a copy is kept here on your device.':'Found something broken or off? Jot it down and it\'s saved here on your device so you can review it.'}</p>
-      <textarea id="bugText" placeholder="What went wrong? What were you doing when it happened?" rows="3" aria-label="Describe the bug" style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:14px;font-size:14px;font-family:var(--sans);background:var(--card);color:var(--ink);resize:vertical"></textarea>
-      <button class="btn" id="bugSubmit" style="margin-top:8px">${bugSending?'📤 Send bug report':'Save bug report'}</button>
+      <h3>${reportTypesAvailable()?'Send feedback':'Report a bug'}</h3>
+      <p class="sub" style="margin-bottom:10px">${bugSending?(reportTypesAvailable()?'Spot a bug, have an idea, or want a dish added? Pick a type, describe it, and tap send — it goes straight to the team, and a copy is kept here on your device.':'Found something broken or off? Describe it and tap send — it goes straight to the team, and a copy is kept here on your device.'):'Found something broken or off? Jot it down and it\'s saved here on your device so you can review it.'}</p>
+      ${reportTypesAvailable()?`<div class="chips" id="reportTypeChips" style="margin-bottom:10px">${REPORT_TYPES.map((t,i)=>`<div class="chip ${i===0?'sel':''}" data-rtype="${t.key}">${t.label}</div>`).join('')}</div>`:''}
+      <textarea id="bugText" placeholder="What went wrong? What were you doing when it happened?" rows="3" aria-label="Describe your feedback" style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:14px;font-size:14px;font-family:var(--sans);background:var(--card);color:var(--ink);resize:vertical"></textarea>
+      <button class="btn" id="bugSubmit" style="margin-top:8px">${bugSending?(reportTypesAvailable()?'📤 Send':'📤 Send bug report'):(reportTypesAvailable()?'Save':'Save bug report')}</button>
       <div id="bugList" style="margin-top:12px"></div>
     </div>
     <div class="set-group">
@@ -4619,21 +4659,35 @@ function renderSettings(){
   if(sp)sp.onclick=openStatePicker;
   // Bug reports (saved locally; sent to the owner via Formspree when configured).
   renderBugList();
+  // Report type chips (beta/preview): Bug / Suggestion / Dish request. Selecting one updates the
+  // textarea placeholder and which type is sent. Defaults to bug each time Settings is rendered.
+  reportType='bug';
+  const rtChips=document.getElementById('reportTypeChips');
+  if(rtChips){
+    rtChips.querySelectorAll('[data-rtype]').forEach(c=>c.onclick=()=>{
+      reportType=c.dataset.rtype;
+      rtChips.querySelectorAll('[data-rtype]').forEach(x=>x.classList.toggle('sel',x===c));
+      const t=REPORT_TYPES.find(x=>x.key===reportType);
+      const ta=document.getElementById('bugText'); if(ta&&t)ta.placeholder=t.ph;
+    });
+  }
   const bs=document.getElementById('bugSubmit');
   if(bs)bs.onclick=async()=>{
     const ta=document.getElementById('bugText');
     const txt=(ta.value||'').trim();
-    if(!txt){toast('Type what went wrong first');return;}
+    const typed=reportTypesAvailable()?reportType:'bug';
+    const noun=typed==='suggestion'?'suggestion':typed==='dish'?'dish request':'bug report';
+    if(!txt){toast(typed==='bug'?'Type what went wrong first':`Describe your ${noun} first`);return;}
     // Always save on-device first, so a report is never lost even if the send fails.
     const now=new Date();
-    const report={id:Date.now(),when:now.toISOString(),text:txt,version:appVersionNumber(),channel:channelLabel()};
+    const report={id:Date.now(),when:now.toISOString(),text:txt,type:typed,version:appVersionNumber(),channel:channelLabel()};
     S.bugReports.unshift(report);
     save();ta.value='';renderBugList();
     // Sending is gated to the beta/preview paths while it's still being tested. Public = save only.
-    if(!bugSendingEnabled()||!FORMSPREE_ENDPOINT){ toast('Bug report saved 🐛 Thank you!'); return; }
-    toast('Sending your report…');
+    if(!bugSendingEnabled()||!FORMSPREE_ENDPOINT){ toast(`Saved ${noun} 🙌 Thank you!`); return; }
+    toast('Sending…');
     const ok=await sendBugReport(report);
-    toast(ok?'Report sent 🐛 Thank you!':'Saved on your device — we\'ll send it later.');
+    toast(ok?`Sent — thank you! 🙌`:'Saved on your device — we\'ll send it later.');
     renderBugList();
   };
 }
@@ -4651,12 +4705,15 @@ async function sendBugReport(report){
   const d=new Date(report.when);
   const dateStr=d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
   const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+  // Human-readable kind for the email subject/body (defaults to Bug for older/public reports).
+  const kind=report.type==='suggestion'?'Suggestion':report.type==='dish'?'Dish request':'Bug report';
   try{
     const res=await fetch(FORMSPREE_ENDPOINT,{
       method:'POST',
       headers:{'Content-Type':'application/json','Accept':'application/json'},
       body:JSON.stringify({
-        _subject:`Plate bug report — ${report.channel||('v'+ (report.version||''))}`,
+        _subject:`Plate ${kind.toLowerCase()} — ${report.channel||('v'+ (report.version||''))}`,
+        type:kind,                    // Bug report / Suggestion / Dish request
         date:dateStr,                 // mandatory
         time:timeStr,                 // mandatory
         version:report.version||'',   // mandatory
@@ -4702,7 +4759,7 @@ function renderBugList(){
     ? `<button class="btn" id="bugUploadAll" style="margin-bottom:10px">⬆️ Upload ${pending} saved report${pending>1?'s':''} now</button>` : '';
   el.innerHTML=`<p class="sub" style="font-weight:600;color:var(--ink);margin-bottom:8px">Your saved reports (${reports.length})</p>`+uploadBtn+
     reports.map(b=>`<div class="bug-item" data-bug="${b.id}">
-      <div class="bug-meta">${new Date(b.when).toLocaleString()}${b.version?` · v${b.version}`:''}${b.channel?` · ${b.channel}`:''} · ${b.sent?'✅ sent':'📥 saved'}</div>
+      <div class="bug-meta">${reportTypeLabel(b.type||'bug')} · ${new Date(b.when).toLocaleString()}${b.version?` · v${b.version}`:''}${b.channel?` · ${b.channel}`:''} · ${b.sent?'✅ sent':'📥 saved'}</div>
       <div class="bug-text"></div>
       <button class="bug-del" data-bug="${b.id}" aria-label="delete report">Delete</button>
     </div>`).join('');
