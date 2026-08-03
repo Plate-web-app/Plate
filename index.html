@@ -252,25 +252,28 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 /* Dark: keep the bar a solid surface too (same reason as light — no frosted/flat split). */
 :root[data-theme="dark"] .tabbar{background:var(--card)}
 /* Global version badge — always visible, top-right just left of the gear. Tappable: a triple-tap opens hidden dev tools. */
+/* Top-right badge cluster. One fixed flex row anchored just left of the gear; the version badge
+   sits at the right, dev indicator bubbles flow to its left. Because they share a flex row, they
+   never overlap no matter how wide the version label gets. */
+#topBadges{
+  position:fixed;top:calc(env(safe-area-inset-top) + 13px);right:calc(max(0px,(100% - var(--frame))/2) + 62px);
+  z-index:60;display:flex;flex-direction:row;align-items:center;gap:5px;pointer-events:none;
+}
 #verBadge{
-  position:fixed;top:calc(env(safe-area-inset-top) + 14px);right:calc(max(0px,(100% - var(--frame))/2) + 64px);
-  z-index:60;cursor:pointer;-webkit-user-select:none;user-select:none;font-size:9.5px;font-weight:700;letter-spacing:.4px;
+  cursor:pointer;pointer-events:auto;-webkit-user-select:none;user-select:none;font-size:9.5px;font-weight:700;letter-spacing:.4px;
   color:var(--muted);opacity:.55;background:var(--card);border:1px solid var(--line);
-  padding:2px 7px;border-radius:99px;font-family:var(--sans);line-height:1.7;touch-action:manipulation;
+  padding:2px 7px;border-radius:99px;font-family:var(--sans);line-height:1.7;touch-action:manipulation;white-space:nowrap;
 }
-/* Dev-only indicator bubbles, in a row to the LEFT of the version badge (top-right area).
-   The badge's LEFT edge sits around frame-edge + 128px; this row is anchored just past that and
-   grows further left (row-reverse) so bubbles never overlap the badge. Empty for users. */
-#devIndicators{
-  position:fixed;top:calc(env(safe-area-inset-top) + 15px);right:calc(max(0px,(100% - var(--frame))/2) + 134px);
-  z-index:60;pointer-events:none;display:flex;flex-direction:row-reverse;align-items:center;gap:4px;
-}
-#devIndicators .dev-ind{font-family:var(--sans);font-size:8.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:99px;color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+/* Env/path state is shown IN the badge itself (color + full opacity), so it never floats separately. */
+#verBadge.badge-feature{background:#7b2fbf;border-color:#7b2fbf;color:#fff;opacity:1}
+#verBadge.badge-bugfix{background:#0e8a8a;border-color:#0e8a8a;color:#fff;opacity:1}
+#verBadge.badge-devenv{background:#d98324;border-color:#d98324;color:#fff;opacity:1}
+/* Remaining dev-only bubbles (dev colors / skipped signup / forced popup) flow left of the badge. */
+#devIndicators{display:flex;flex-direction:row;align-items:center;gap:4px}
+#devIndicators .dev-ind{font-family:var(--sans);font-size:8.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:99px;color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25);white-space:nowrap}
 #devIndicators .di-colors{background:#8b5cf6}
-#devIndicators .di-env{background:#d98324}
 #devIndicators .di-skip{background:#c0392b}
 #devIndicators .di-forced{background:#2980b9}
-#devIndicators .di-preview{background:#7b2fbf}
 
 /* ---------- Home / dashboard ---------- */
 .hero{margin:8px 0 22px}
@@ -735,10 +738,12 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 <body>
 <div id="app">
 
-  <!-- Global version badge — visible on every screen (welcome, onboarding, home, etc.). -->
-  <div id="verBadge" aria-hidden="true"></div>
-  <!-- Dev-only indicator bubbles (dev colors / dev environment / skipped sign-up). Hidden unless a dev setting is active. -->
-  <div id="devIndicators" aria-hidden="true"></div>
+  <!-- Top-right badge cluster: version badge (color reflects env/path) + dev-only indicator bubbles.
+       One flex row so nothing overlaps regardless of the badge's text width. -->
+  <div id="topBadges" aria-hidden="true">
+    <div id="devIndicators"></div>
+    <div id="verBadge"></div>
+  </div>
 
   <!-- ============ WELCOME / ADD-TO-HOME-SCREEN (new users only) ============ -->
   <div id="welcome" class="screen hidden">
@@ -1152,18 +1157,28 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
    normal rules above for the user-facing part.)
 
    ------------------------------------------------------------
-   UPDATE PREVIEW ENVIRONMENT (owner + beta testers):
-   There is a third, toggleable "Update preview" environment (its own save slot) used to try out
-   NEW, in-progress changes before they ship to the public app. Beta testers can enter it too.
-     • The PUBLIC app version is APP_VERSION (currently 26.12.3). The preview environment shows
-       PREVIEW_VERSION labeled "<PREVIEW_VERSION> preview" (currently 27.0.0).
-     • FROM NOW ON: every change I (the owner) make should first go into the preview environment.
-       Bump PREVIEW_VERSION for preview changes; only roll them into APP_VERSION + a CHANGELOG
-       entry when the owner says a change is ready to release to the public.
-     • Preview-only changes do NOT get a public CHANGELOG entry until released.
+   RELEASE MODEL — YEAR-BASED VERSIONS + TWO PREVIEW PATHS (like iOS betas):
+   The primary/major version number follows the YEAR (26 = 2026, 27 = 2027, ...).
+     • APP_VERSION      — the PUBLIC stable app on the current-year line (26.x). What real users run.
+     • BUGFIX_VERSION   — the 26.x BUGFIX BETA path: staged bug fixes on the current-year line,
+                          previewed before they roll into APP_VERSION. Shown as "<BUGFIX_VERSION> beta".
+                          Beta testers (0000) MAY opt into this path.
+     • FEATURE_VERSION  — the 27.x FEATURE PREVIEW path: next year's major release, where NEW
+                          FEATURES accumulate. Shown as "<FEATURE_VERSION> preview". Owner-only.
+   WHERE CHANGES GO:
+     • A new FEATURE  -> build it on the 27.x feature path; bump FEATURE_VERSION.
+     • A BUG FIX      -> build it on the 26.x bugfix path; bump BUGFIX_VERSION.
+     • When the owner says a bugfix path is ready to release, roll it into APP_VERSION (26.x) with a
+       CHANGELOG entry. When the year turns over / the feature line ships, 27.x becomes the new
+       public APP_VERSION line.
+   Preview/beta-only changes do NOT get a public CHANGELOG entry until released to APP_VERSION.
+   The release PATH ('plate_path') is independent of the DATA SLOT ('plate_slot'): you can run a
+   preview path on your REAL data (dogfooding) while the separate Dev environment slot stays
+   available for throwaway testing. Both are toggled in the hidden dev tools.
    ============================================================ */
-const APP_VERSION='26.12.4';        // public release version
-const PREVIEW_VERSION='27.0.0';     // shown as "27.0.0 preview" only in the update-preview environment
+const APP_VERSION='26.12.4';         // PUBLIC stable version (26.x line)
+const BUGFIX_VERSION='26.13.0';      // 26.x bugfix beta path — shown as "26.13.0 beta" (owner + beta testers)
+const FEATURE_VERSION='27.0.0';      // 27.x feature preview path — shown as "27.0.0 preview" (owner-only)
 const CHANGELOG=[
   {v:'26.12.4',date:'Jul 28, 2026',time:'3:46 AM CDT',type:'fix',title:'Removed the empty space under the iPhone bottom bar',
    notes:['Fixed the bottom navigation bar on iPhone: removed the large empty band that was showing below the icons, so the bar is now compact and sits flush at the bottom of the screen.']},
@@ -2833,19 +2848,32 @@ function isNewToUser(id){return !S.viewed[id];}
 function markViewed(id){ if(!S.viewed[id]){S.viewed[id]=true;save();} }
 
 /* Data slots — three separate environments, each its own localStorage key:
-   • 'plate_v1'          — the real/personal app (public).
-   • 'plate_v1_dev'      — hidden DEV ENVIRONMENT (owner testing sandbox).
-   • 'plate_v1_preview'  — UPDATE PREVIEW environment (owner + beta testers preview new changes).
-   'plate_env' (its own key, outside all slots) remembers which environment is active so it
-   survives reloads: '' / 'dev' / 'preview'. */
-function currentEnv(){return localStorage.getItem('plate_env')||'';}
-function inDevEnv(){return currentEnv()==='dev';}
-function inPreviewEnv(){return currentEnv()==='preview';}
-function activeSlot(){const e=currentEnv();return e==='dev'?'plate_v1_dev':e==='preview'?'plate_v1_preview':'plate_v1';}
+   • 'plate_v1'          — the real/personal app (public), your real saved data.
+   • 'plate_v1_dev'      — hidden DEV ENVIRONMENT: a separate throwaway data slot for testing
+                           onboarding / resets without touching your real data.
+
+   TWO INDEPENDENT AXES (this is the release model — think iOS betas):
+   1. DATA SLOT ('plate_slot'): '' = real data · 'dev' = sandbox slot. Toggled by the Dev
+      environment button. Lets you keep your real data OR jump to a throwaway copy.
+   2. RELEASE PATH ('plate_path'): '' = public (26.x stable) · 'feature' = 27.x feature preview
+      (next year's release, owner-only) · 'bugfix' = 26.x bugfix beta (staged fixes; beta testers
+      may opt in). The path runs on WHATEVER data slot you're in — so by default you preview new
+      stuff on your REAL data, like enrolling your own device in a beta.
+   Both keys live outside the data and survive reloads. */
+function currentSlot(){return localStorage.getItem('plate_slot')||'';}
+function currentPath(){return localStorage.getItem('plate_path')||'';}
+function inDevEnv(){return currentSlot()==='dev';}
+function onFeaturePath(){return currentPath()==='feature';}
+function onBugfixPath(){return currentPath()==='bugfix';}
+function activeSlot(){return currentSlot()==='dev'?'plate_v1_dev':'plate_v1';}
 function save(){localStorage.setItem(activeSlot(),JSON.stringify(S))}
 function load(){try{return JSON.parse(localStorage.getItem(activeSlot()))}catch(e){return null}}
-// Version label for the badge: preview env shows the preview version, everything else the public one.
-function displayVersion(){return inPreviewEnv()?`${PREVIEW_VERSION} preview`:`v${APP_VERSION}`;}
+// Version label for the badge, driven by the release path (year-based numbering).
+function displayVersion(){
+  if(onFeaturePath())return `${FEATURE_VERSION} preview`;
+  if(onBugfixPath())return `${BUGFIX_VERSION} beta`;
+  return `v${APP_VERSION}`;
+}
 
 /* ---------- Theme (light / dark / match device) ----------
    S.settings.theme: 'auto' (default), 'light', or 'dark'. In auto we follow the OS
@@ -4781,9 +4809,9 @@ function wireDevTools(){
 // Gate behind a password; the value entered picks which panel. Unlocks for the rest of the session.
 function requestDevTools(){
   if(devMode){openDevTools();return;}   // already unlocked this session
-  // In the dev or preview environment you've already authenticated — reopen tools without a
-  // password, using the tier you entered with (dev vs beta), remembered in 'plate_tier'.
-  if(inDevEnv()||inPreviewEnv()){devMode=localStorage.getItem('plate_tier')||'dev';openDevTools();return;}
+  // If you're in the dev slot or on any preview/beta path you've already authenticated — reopen
+  // tools without a password, using the tier you entered with (dev vs beta), remembered in 'plate_tier'.
+  if(inDevEnv()||onFeaturePath()||onBugfixPath()){devMode=localStorage.getItem('plate_tier')||'dev';openDevTools();return;}
   // Otherwise show the in-app numeric password entry (window.prompt forces the full keyboard on iOS).
   const ov=document.getElementById('devPwOverlay');
   const inp=document.getElementById('devPwInput');
@@ -4808,14 +4836,18 @@ function openDevTools(){
   const standalone=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
   document.getElementById('devTitle').textContent=isDev?'🛠️ Developer tools':'🧪 Beta tools';
   const meta=document.getElementById('devMeta');
-  const envTag=inDevEnv()?' · DEV ENV':inPreviewEnv()?` · PREVIEW ${PREVIEW_VERSION}`:'';
-  if(meta)meta.textContent=`${displayVersion()} · ${inOnboarding?'in sign-up':'tab: '+(currentTab||'—')}${standalone?' · web app':''}${envTag}`;
+  const pathTag=onFeaturePath()?` · FEATURE ${FEATURE_VERSION}`:onBugfixPath()?` · BETA ${BUGFIX_VERSION}`:'';
+  const slotTag=inDevEnv()?' · DEV SLOT':'';
+  if(meta)meta.textContent=`${displayVersion()} · ${inOnboarding?'in sign-up':'tab: '+(currentTab||'—')}${standalone?' · web app':''}${pathTag}${slotTag}`;
   const wrap=document.getElementById('devButtons');
   const btns=[];
-  // Update preview environment toggle — available to BOTH dev and beta so testers can preview new changes.
-  btns.push({label:`🔬 Update preview (${PREVIEW_VERSION}): ${inPreviewEnv()?'ON':'OFF'}`,fn:togglePreviewEnv});
+  // ---- Release paths (year-based). Two independent toggles, mutually exclusive. ----
+  // 26.x bugfix beta — available to BOTH dev and beta testers.
+  btns.push({label:`🐞 Bugfix beta (${BUGFIX_VERSION}): ${onBugfixPath()?'ON':'OFF'}`,fn:toggleBugfixPath});
+  // 27.x feature preview — owner (dev) only.
+  if(isDev)btns.push({label:`🔬 Feature preview (${FEATURE_VERSION}): ${onFeaturePath()?'ON':'OFF'}`,fn:toggleFeaturePath});
   if(isDev){
-    // Dev environment toggle — switches to a separate save slot so testing never touches real data.
+    // Dev environment (data slot) — separate throwaway data, independent of the release path above.
     btns.push({label:`🧪 Dev environment: ${inDevEnv()?'ON':'OFF'}`,fn:toggleDevEnv});
     // Dev colors toggle — swaps light/dark to the hidden purple palettes (amber inside the dev env).
     const dcOn=!!(S.settings&&S.settings.devColors);
@@ -4858,17 +4890,23 @@ function forceOccasion(id,leap){
   renderDevIndicators();
   toast(id?(leap?'Forced: Leap-day birthday':`Forced: ${devForcedOccasion()?.name||id}`):'Cleared forced popup');
 }
-// Toggle the separate dev-environment save slot. Reloads so the app boots from that slot.
-// Environments are mutually exclusive — entering one leaves whichever you were in.
+// DATA SLOT toggle: the separate dev-environment throwaway data slot ('plate_slot').
+// Independent of the release path — leaving/entering this doesn't change which version path you're on.
 function toggleDevEnv(){
-  if(inDevEnv())localStorage.removeItem('plate_env');
-  else localStorage.setItem('plate_env','dev');
+  if(inDevEnv())localStorage.removeItem('plate_slot');
+  else localStorage.setItem('plate_slot','dev');
   location.reload();
 }
-// Toggle the Update-preview environment (own slot). Available to dev + beta testers.
-function togglePreviewEnv(){
-  if(inPreviewEnv())localStorage.removeItem('plate_env');
-  else localStorage.setItem('plate_env','preview');
+// RELEASE PATH toggles ('plate_path'). The two paths are mutually exclusive; turning one on clears
+// the other. They run on whatever data slot you're currently in (real data by default).
+function toggleFeaturePath(){
+  if(onFeaturePath())localStorage.removeItem('plate_path');
+  else localStorage.setItem('plate_path','feature');
+  location.reload();
+}
+function toggleBugfixPath(){
+  if(onBugfixPath())localStorage.removeItem('plate_path');
+  else localStorage.setItem('plate_path','bugfix');
   location.reload();
 }
 function devSkipOnboarding(){
@@ -4913,13 +4951,21 @@ function devResetData(){
   localStorage.removeItem(activeSlot());
   location.reload();
 }
-// Dev-only indicator bubbles next to the version badge. Only render when a dev signal is active;
-// otherwise the container stays empty and invisible for normal users.
+// Env/path state is shown IN the version badge (color); the remaining dev signals show as bubbles
+// to its left. Both only appear when a dev signal is active — invisible to normal users.
 function renderDevIndicators(){
+  // Colour the version badge itself by release path / data slot (path wins over slot for the color).
+  const vb=document.getElementById('verBadge');
+  if(vb){
+    vb.classList.remove('badge-feature','badge-bugfix','badge-devenv');
+    if(onFeaturePath())vb.classList.add('badge-feature');
+    else if(onBugfixPath())vb.classList.add('badge-bugfix');
+    else if(inDevEnv())vb.classList.add('badge-devenv');
+  }
   const el=document.getElementById('devIndicators'); if(!el)return;
   const bits=[];
-  if(inDevEnv())bits.push('<span class="dev-ind di-env">Dev env</span>');
-  if(inPreviewEnv())bits.push(`<span class="dev-ind di-preview">Preview ${PREVIEW_VERSION}</span>`);
+  // Dev slot bubble only when on a preview path too (otherwise the badge color already shows it).
+  if(inDevEnv()&&(onFeaturePath()||onBugfixPath()))bits.push('<span class="dev-ind di-colors" style="background:#d98324">Dev slot</span>');
   if(S&&S.settings&&S.settings.devColors)bits.push('<span class="dev-ind di-colors">Dev colors</span>');
   if(S&&S.skippedSignup)bits.push('<span class="dev-ind di-skip">Skipped signup</span>');
   if(devForceOccasionId){const o=devForcedOccasion();bits.push(`<span class="dev-ind di-forced">Forced ${o?o.emoji:''}</span>`);}
